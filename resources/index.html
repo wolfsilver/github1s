@@ -3,24 +3,146 @@
 	<head>
 		<meta charset="utf-8" />
 		<!-- Disable pinch zooming -->
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"
+		/>
 		<!-- Workbench Icon/Manifest/CSS -->
-		<link rel="icon" media="(prefers-color-scheme:light)" href="/favicon-light.svg" type="image/svg+xml">
-		<link rel="icon" media="(prefers-color-scheme:dark)" href="/favicon-dark.svg" type="image/svg+xml">
-		<link rel="preload" href="/static/vscode/vs/workbench/workbench.web.main.css" as="style">
+		<link rel="icon" media="(prefers-color-scheme:light)" href="/favicon-light.svg" type="image/svg+xml" />
+		<link rel="icon" media="(prefers-color-scheme:dark)" href="/favicon-dark.svg" type="image/svg+xml" />
+		<link rel="preload" href="/static/vscode/vs/workbench/workbench.web.main.css" as="style" />
 		<link rel="manifest" href="/manifest.json" />
 		<title>GitHub1s</title>
-		<style>#load-spinner{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background-color:#1e1e1e}.lds-grid{display:inline-block;position:relative;width:80px;height:80px}.lds-grid div{position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;animation:lds-grid 1.2s linear infinite}.lds-grid div:nth-child(1){top:8px;left:8px;animation-delay:0s}.lds-grid div:nth-child(2){top:8px;left:32px;animation-delay:-.4s}.lds-grid div:nth-child(3){top:8px;left:56px;animation-delay:-.8s}.lds-grid div:nth-child(4){top:32px;left:8px;animation-delay:-.4s}.lds-grid div:nth-child(5){top:32px;left:32px;animation-delay:-.8s}.lds-grid div:nth-child(6){top:32px;left:56px;animation-delay:-1.2s}.lds-grid div:nth-child(7){top:56px;left:8px;animation-delay:-.8s}.lds-grid div:nth-child(8){top:56px;left:32px;animation-delay:-1.2s}.lds-grid div:nth-child(9){top:56px;left:56px;animation-delay:-1.6s}@keyframes lds-grid{0%,100%{opacity:1}50%{opacity:.5}}</style>
-		<script><%= titleScript %></script>
+		<style>
+			#js-default-loading-screen-container {
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				background-color: #1e1e1e;
+				/*     background-color: #efefef; */
+			}
+			#js-default-loading-screen-container > div > div h2,
+			#js-default-loading-screen-container > div > div svg {
+				display: none !important;
+			}
+			#js-default-loading-screen-container > div > div {
+				height: 100px;
+				width: 200px;
+				overflow: hidden;
+				position: absolute;
+				top: 0;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				margin: auto;
+			}
+			#js-default-loading-screen-container > div > div:after {
+				content: '';
+				display: block;
+				background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 200px 100px" enable-background="new 0 0 200px 100px" xml:space="preserve"><polyline fill="none" stroke-width="3px" stroke="white" points="2.4,58.7 70.8,58.7 76.1,46.2 81.1,58.7 89.9,58.7 93.8,66.5 102.8,22.7 110.6,78.7 115.3,58.7 126.4,58.7 134.4,54.7 142.4,58.7 197.8,58.7 "/></svg>')
+					0 0 no-repeat;
+				/*     background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 200px 100px" enable-background="new 0 0 200px 100px" xml:space="preserve"><polyline fill="none" stroke-width="3px" stroke="black" points="2.4,58.7 70.8,58.7 76.1,46.2 81.1,58.7 89.9,58.7 93.8,66.5 102.8,22.7 110.6,78.7 115.3,58.7 126.4,58.7 134.4,54.7 142.4,58.7 197.8,58.7 "/></svg>') 0 0 no-repeat; */
+				width: 100%;
+				height: 100%;
+				position: absolute;
+				-webkit-animation: 2s pulse linear infinite;
+				-moz-animation: 2s pulse linear infinite;
+				-o-animation: 2s pulse linear infinite;
+				animation: 2s pulse linear infinite;
+				clip: rect(0, 0, 100px, 0);
+			}
+			#js-default-loading-screen-container > div > div:before {
+				content: '';
+				position: absolute;
+				z-index: -1;
+				left: 2px;
+				right: 2px;
+				bottom: 0;
+				top: 16px;
+				margin: auto;
+				height: 3px;
+			}
+			@-webkit-keyframes pulse {
+				0% {
+					clip: rect(0, 0, 100px, 0);
+					opacity: 0.4;
+				}
+				4% {
+					clip: rect(0, 66.66667px, 100px, 0);
+					opacity: 0.6;
+				}
+				15% {
+					clip: rect(0, 133.33333px, 100px, 0);
+					opacity: 0.8;
+				}
+				20% {
+					clip: rect(0, 300px, 100px, 0);
+					opacity: 1;
+				}
+
+				80% {
+					clip: rect(0, 300px, 100px, 0);
+					opacity: 0;
+				}
+
+				90% {
+					clip: rect(0, 300px, 100px, 0);
+					opacity: 0;
+				}
+
+				100% {
+					clip: rect(0, 300px, 100px, 0);
+					opacity: 0;
+				}
+			}
+			@keyframes pulse {
+				0% {
+					clip: rect(0, 0, 100px, 0);
+				}
+				4% {
+					clip: rect(0, 66.66667px, 100px, 0);
+				}
+				15% {
+					clip: rect(0, 133.33333px, 100px, 0);
+				}
+				20% {
+					clip: rect(0, 300px, 100px, 0);
+					opacity: 1;
+				}
+
+				80% {
+					clip: rect(0, 300px, 100px, 0);
+					opacity: 0;
+				}
+
+				90% {
+					opacity: 0;
+				}
+
+				100% {
+					clip: rect(0, 300px, 100px, 0);
+					opacity: 0;
+				}
+			}
+		</style>
+		<script>
+			<%= titleScript %>
+		</script>
 	</head>
 
 	<body aria-label="">
 		<noscript title="No JavaScript Support">
 			<h1>You need to enable JavaScript to run this app.</h1>
 		</noscript>
-		<div id="load-spinner" aria-label="loading">
-			<div class="lds-grid">
-				<div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+		<div id="js-default-loading-screen-container" aria-label="loading">
+			<div>
+				<div></div>
 			</div>
 		</div>
 	</body>
@@ -32,5 +154,10 @@
 	<script src="/static/vscode/vs/workbench/workbench.web.main.nls.js"></script>
 	<script src="/static/vscode/vs/workbench/workbench.web.main.js"></script>
 	<script src="/static/vscode/vs/code/browser/workbench/workbench.js"></script>
-	<script src="https://unpkg.com/favicon-switcher@1.2.2/dist/index.js" crossorigin="anonymous" type="application/javascript" async="async"></script>
+	<script
+		src="https://unpkg.com/favicon-switcher@1.2.2/dist/index.js"
+		crossorigin="anonymous"
+		type="application/javascript"
+		async="async"
+	></script>
 </html>

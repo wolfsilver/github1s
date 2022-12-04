@@ -80,7 +80,10 @@ export const registerVSCodeEventListeners = () => {
 		handleRouterOnActiveEditorChange(editor);
 		handleOpenChangesContextOnActiveEditorChange(editor);
 		handlegutterBlameOpenContextOnActiveEditorChange();
-		handleRefreshFileHistoryView();
+		// diff 窗口不触发变更
+		if (editor && !editor.document.uri.query) {
+			handleRefreshFileHistoryView();
+		}
 	});
 
 	// debounce to update the browser url

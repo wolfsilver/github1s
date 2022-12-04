@@ -4,10 +4,10 @@
  */
 
 import { updateCheckoutTo } from './checkout';
-import { showGitpod } from './gitpod';
-import { showSponsors } from './sponsors';
+// import { showGitpod } from './gitpod';
+// import { showSponsors } from './sponsors';
 
 export const decorateStatusBar = () => {
-	showSponsors().then(() => showGitpod());
+	// showSponsors().then(() => showGitpod());
 	updateCheckoutTo();
 };
