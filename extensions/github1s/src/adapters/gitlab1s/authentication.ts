@@ -78,14 +78,14 @@ export class GitLab1sAuthenticationView {
 
 	public open(notice: string = '', withBarriar = false) {
 		const extensionContext = getExtensionContext();
-
+		debugger;
 		this.notice = notice;
 		withBarriar && !this.tokenBarrier && (this.tokenBarrier = new Barrier(600 * 1000));
 
 		if (!this.webviewPanel) {
 			this.webviewPanel = vscode.window.createWebviewPanel(
 				GitLab1sAuthenticationView.viewType,
-				'Authenticating to GitHub',
+				'Authenticating to GitLab',
 				vscode.ViewColumn.One,
 				getWebviewOptions(extensionContext.extensionUri)
 			);
@@ -98,11 +98,11 @@ export class GitLab1sAuthenticationView {
 			vscode.Uri.joinPath(extensionContext.extensionUri, 'assets/pages/github1s-authentication.css').toString(),
 		];
 		const scripts = [
-			vscode.Uri.joinPath(extensionContext.extensionUri, 'assets/pages/github1s-authentication.js').toString(),
+			vscode.Uri.joinPath(extensionContext.extensionUri, 'assets/pages/gitlab1s-authentication.js').toString(),
 		];
 
 		const webview = this.webviewPanel.webview;
-		webview.html = createPageHtml('Authenticating To GitHub', styles, scripts);
+		webview.html = createPageHtml('Authenticating To GitLab', styles, scripts);
 		return withBarriar ? this.tokenBarrier!.wait() : Promise.resolve();
 	}
 }

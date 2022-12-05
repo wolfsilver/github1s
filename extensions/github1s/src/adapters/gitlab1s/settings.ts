@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { getExtensionContext } from '@/helpers/context';
 import { createPageHtml, getWebviewOptions } from '@/helpers/page';
 import { GitLabTokenManager } from './token';
-import { GitHubFetcher } from './fetcher';
+import { GitLabFetcher } from './fetcher';
 
 export const messageApiMap = {
 	info: vscode.window.showInformationMessage,
@@ -20,7 +20,7 @@ export class GitLab1sSettingsViewProvider implements vscode.WebviewViewProvider 
 
 	public registerListeners(webviewView: vscode.WebviewView) {
 		const tokenManager = GitLabTokenManager.getInstance();
-		const githubFetcher = GitHubFetcher.getInstance();
+		const githubFetcher = GitLabFetcher.getInstance();
 
 		webviewView.webview.onDidReceiveMessage((message) => {
 			const commonResponse = { id: message.id, type: message.type };

@@ -53,6 +53,7 @@
 	const pathParts = window.location.pathname.split('/').filter(Boolean);
 	if (
 		[
+			'localhost',
 			'gitlab.woa.cool',
 			'gitlab1s.woa.cool',
 			'gitlabcode.woa.cool',

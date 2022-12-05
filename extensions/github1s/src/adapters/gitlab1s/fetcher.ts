@@ -11,6 +11,7 @@ import { GitLab1sAuthenticationView } from './authentication';
 import { GitLabTokenManager } from './token';
 import { isNil } from '@/helpers/util';
 import { SourcegraphDataSource } from '../sourcegraph/data-source';
+import { GitlabRequest } from './gitlab-request';
 
 export const errorMessages = {
 	rateLimited: {
@@ -49,22 +50,22 @@ const detectErrorMessage = (response: any, authenticated: boolean, accessReposit
 
 const USE_SOURCEGRAPH_API_FIRST = 'USE_SOURCEGRAPH_API_FIRST';
 
-export class GitHubFetcher {
-	private static instance: GitHubFetcher | null = null;
+export class GitLabFetcher {
+	private static instance: GitLabFetcher | null = null;
 	private _emitter = new vscode.EventEmitter<boolean | null | undefined>();
 	private _ownerAndRepoPromise: Promise<[string, string]> | null = null;
 	private _repositoryPromise: Promise<{ private: boolean } | null> | null = null;
-	private _originalRequest: Octokit['request'] | null = null;
+	private _originalRequest: GitlabRequest['request'] | null = null;
 	public onDidChangeUseSourcegraphApiFirst = this._emitter.event;
 
-	public request: Octokit['request'];
+	public request: GitlabRequest['request'];
 	public graphql: Octokit['graphql'];
 
-	public static getInstance(): GitHubFetcher {
-		if (GitHubFetcher.instance) {
-			return GitHubFetcher.instance;
+	public static getInstance(): GitLabFetcher {
+		if (GitLabFetcher.instance) {
+			return GitLabFetcher.instance;
 		}
-		return (GitHubFetcher.instance = new GitHubFetcher());
+		return (GitLabFetcher.instance = new GitLabFetcher());
 	}
 
 	private constructor() {
@@ -81,30 +82,31 @@ export class GitHubFetcher {
 	// initial fetcher methods in this way for correct `request/graphql` type inference
 	initFetcherMethods() {
 		const accessToken = GitLabTokenManager.getInstance().getToken();
-		const octokit = new Octokit({ auth: accessToken, request: { fetch } });
+		const octokit = new GitlabRequest({ auth: accessToken });
 
 		this._originalRequest = octokit.request;
-		this.request = Object.assign((...args: Parameters<Octokit['request']>) => {
+		this.request = Object.assign((...args: Parameters<GitlabRequest['request']>) => {
 			return octokit.request(...args).catch(async (error) => {
-				const errorStatus = (error as any)?.response?.status;
+				debugger;
+				const errorStatus = (error as any)?.status;
 				if ([401, 403, 404].includes(errorStatus)) {
 					// maybe we have to acquire github access token to continue
 					const repository = await this.resolveCurrentRepository(false);
 					const message = detectErrorMessage(error?.response, !!accessToken, !!repository);
-					await GitLab1sAuthenticationView.getInstance().open(message, true);
+					await GitLab1sAuthenticationView.getInstance().open('message', true);
 					return octokit.request(...args);
 				}
 			});
 		}, octokit.request);
 
-		this.graphql = Object.assign(async (...args: Parameters<Octokit['graphql']>) => {
-			// graphql API only worked for authenticated users
-			if (!GitLabTokenManager.getInstance().getToken()) {
-				const message = 'GraphQL API only worked for authenticated users';
-				await GitLab1sAuthenticationView.getInstance().open(message, true);
-			}
-			return octokit.graphql(...args);
-		}, octokit.graphql);
+		// this.graphql = Object.assign(async (...args: Parameters<Octokit['graphql']>) => {
+		// 	// graphql API only worked for authenticated users
+		// 	if (!GitLabTokenManager.getInstance().getToken()) {
+		// 		const message = 'GraphQL API only worked for authenticated users';
+		// 		await GitLab1sAuthenticationView.getInstance().open(message, true);
+		// 	}
+		// 	return octokit.graphql(...args);
+		// }, octokit.graphql);
 	}
 
 	private getCurrentOwnerAndRepo() {
@@ -128,7 +130,7 @@ export class GitHubFetcher {
 		}
 		return (this._repositoryPromise = new Promise(async (resolve) => {
 			const [owner = 'conwnet', repo = 'github1s'] = await this.getCurrentOwnerAndRepo();
-			const dataSource = SourcegraphDataSource.getInstance('github');
+			const dataSource = SourcegraphDataSource.getInstance('gitlab');
 			if (useSourcegraphApiFirst && !!(await dataSource.provideRepository(`${owner}/${repo}`))) {
 				return resolve({ private: false });
 			}
