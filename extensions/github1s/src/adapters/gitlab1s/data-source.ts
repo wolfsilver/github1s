@@ -385,7 +385,8 @@ export class GitLab1sDataSource extends DataSource {
 			state: getPullState(item),
 			creator: item.author?.name || item.author?.username,
 			createTime: new Date(item.created_at),
-			mergeTime: item.merged_at ? new Date(item.merged_at) : null,
+			// 有些版本没有merged_at字段
+			mergeTime: item.merged_at ? new Date(item.merged_at) : item.updated_at ? new Date(item.updated_at) : null,
 			closeTime: item.closed_at ? new Date(item.closed_at) : null,
 			head: { label: item.labels[0], commitSha: item.sha },
 			base: { label: item.labels[1], commitSha: '' }, // 获取changes时填充
