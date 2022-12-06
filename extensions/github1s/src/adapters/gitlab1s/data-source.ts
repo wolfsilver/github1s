@@ -30,8 +30,8 @@ import {
 import { toUint8Array } from 'js-base64';
 import { matchSorter } from 'match-sorter';
 import { FILE_BLAME_QUERY } from './graphql';
-import { GitHubFetcher } from './fetcher';
-import ifetch from './ifetch';
+import { GitLabFetcher } from './fetcher';
+import ifetch from './gitlab-request';
 import { SourcegraphDataSource } from '../sourcegraph/data-source';
 
 const parseRepoFullName = (repoFullName: string) => {
@@ -63,13 +63,13 @@ const getPullState = (pull: { state: string; merged_at: string | null }): CodeRe
 	return CodeReviewState.Merged;
 };
 
-const sourcegraphDataSource = SourcegraphDataSource.getInstance('github');
+const sourcegraphDataSource = SourcegraphDataSource.getInstance('gitlab');
 const trySourcegraphApiFirst = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
 	const originalMethod = descriptor.value;
 
 	descriptor.value = async function <T extends (...args) => Promise<any>>(...args: Parameters<T>) {
-		return originalMethod.apply(this, args);
-		const githubFetcher = GitHubFetcher.getInstance();
+		// return originalMethod.apply(this, args);
+		const githubFetcher = GitLabFetcher.getInstance();
 		if (await githubFetcher.useSourcegraphApiFirst(args[0])) {
 			try {
 				return await sourcegraphDataSource[propertyKey](...args);
@@ -108,7 +108,7 @@ export class GitLab1sDataSource extends DataSource {
 
 	@trySourcegraphApiFirst
 	async provideDirectory(repoFullName: string, ref: string, path: string, recursive = false): Promise<Directory> {
-		const fetcher = GitHubFetcher.getInstance();
+		const fetcher = GitLabFetcher.getInstance();
 		const encodedPath = encodeFilePath(path);
 		let page = 1;
 		let files = [];
@@ -144,18 +144,19 @@ export class GitLab1sDataSource extends DataSource {
 
 	@trySourcegraphApiFirst
 	async provideFile(repoFullName: string, ref: string, path: string): Promise<File> {
-		const fetcher = GitHubFetcher.getInstance();
+		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const requestParams = { owner, repo, ref, path: encodeURIComponent(path) };
 		const { data } = await ifetch('GET /projects/{owner}%2F{repo}/repository/files/{path}?ref={ref}', requestParams);
 		return { content: toUint8Array((data as any).content) };
 	}
 
+	@trySourcegraphApiFirst
 	async getBranches(repoFullName: string, ref: 'heads' | 'tags'): Promise<Branch[] | Tag[]> {
-		const fetcher = GitHubFetcher.getInstance();
+		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const requestParams = { owner, repo, ref };
-		const { data } = await ifetch('GET /projects/{owner}%2F{repo}/repository/branches', requestParams);
+		const { data } = await fetcher.request('GET /projects/{owner}%2F{repo}/repository/branches', requestParams);
 		return data.map((item) => ({
 			name: item.name,
 			commitSha: item.commit.id,
@@ -163,8 +164,10 @@ export class GitLab1sDataSource extends DataSource {
 			isDefault: item.default,
 		}));
 	}
+
+	@trySourcegraphApiFirst
 	async getTags(repoFullName: string, ref: 'heads' | 'tags'): Promise<Branch[] | Tag[]> {
-		const fetcher = GitHubFetcher.getInstance();
+		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const requestParams = { owner, repo, ref };
 		const { data } = await ifetch('GET /projects/{owner}%2F{repo}/repository/tags', requestParams);
@@ -205,6 +208,7 @@ export class GitLab1sDataSource extends DataSource {
 	// 	return this.refPathPromiseMap.get(mapKey)!;
 	// }
 
+	@trySourcegraphApiFirst
 	async extractRefPath(repoFullName: string, refAndPath: string): Promise<{ ref: string; path: string }> {
 		if (!refAndPath || refAndPath.match(/^HEAD(\/.*)?$/i)) {
 			return { ref: 'HEAD', path: refAndPath.slice(5) };
@@ -288,7 +292,7 @@ export class GitLab1sDataSource extends DataSource {
 		repoFullName: string,
 		options?: CommitsQueryOptions
 	): Promise<(Commit & { files?: ChangedFile[] })[]> {
-		const fetcher = GitHubFetcher.getInstance();
+		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const queryParams = {
 			page: options?.page,
@@ -318,7 +322,7 @@ export class GitLab1sDataSource extends DataSource {
 
 	@trySourcegraphApiFirst
 	async provideCommit(repoFullName: string, ref: string): Promise<Commit & { files?: ChangedFile[] }> {
-		const fetcher = GitHubFetcher.getInstance();
+		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const requestParams = { owner, repo, ref };
 		const { data } = await ifetch('GET /projects/{owner}%2F{repo}/repository/commits/{ref}', requestParams);
@@ -345,7 +349,7 @@ export class GitLab1sDataSource extends DataSource {
 		ref: string,
 		_options?: CommonQueryOptions
 	): Promise<ChangedFile[]> {
-		const fetcher = GitHubFetcher.getInstance();
+		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const requestParams = { owner, repo, ref };
 		const { data } = await ifetch('GET /projects/{owner}%2F{repo}/repository/commits/{ref}/diff', requestParams);
@@ -368,7 +372,7 @@ export class GitLab1sDataSource extends DataSource {
 		repoFullName: string,
 		options?: CodeReviewsQueryOptions
 	): Promise<(CodeReview & { files?: ChangedFile[] })[]> {
-		const fetcher = GitHubFetcher.getInstance();
+		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const state = options?.state ? (options.state === CodeReviewState.Open ? 'open' : 'closed') : 'all';
 		// per_page=100&page={page}
@@ -395,7 +399,7 @@ export class GitLab1sDataSource extends DataSource {
 	}
 
 	async provideCodeReview(repoFullName: string, id: string): Promise<CodeReview & { files?: ChangedFile[] }> {
-		const fetcher = GitHubFetcher.getInstance();
+		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const pullRequestParams = { owner, repo, pull_number: Number(id) };
 		const { data } = await ifetch('GET /projects/{owner}%2F{repo}/merge_requests/{pull_number}', pullRequestParams);
@@ -419,7 +423,7 @@ export class GitLab1sDataSource extends DataSource {
 		id: string,
 		options?: CommonQueryOptions
 	): Promise<ChangedFile[]> {
-		const fetcher = GitHubFetcher.getInstance();
+		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const pageParams = { per_page: options?.pageSize, page: options?.page };
 		const filesRequestParams = { owner, repo, pull_number: Number(id), ...pageParams };
@@ -467,7 +471,7 @@ export class GitLab1sDataSource extends DataSource {
 	// }
 
 	async provideFileBlameRanges(repoFullName: string, ref: string, path: string): Promise<BlameRange[]> {
-		const fetcher = GitHubFetcher.getInstance();
+		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const requestParams = { owner, repo, ref, path: encodeURIComponent(path) };
 		const { data } = await ifetch(
