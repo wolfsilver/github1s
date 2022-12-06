@@ -42,17 +42,18 @@ export class GitLabTokenManager {
 	public async validateToken(token?: string): Promise<TokenStatus | null> {
 		const accessToken = token === undefined ? this.getToken() : token;
 		const fetchOptions = accessToken ? { headers: { 'PRIVATE-TOKEN': `${accessToken}` } } : {};
-		return fetch(`${GITLAB_DOMAIN}/api/v4/projects`, fetchOptions)
+		return fetch(`${GITLAB_DOMAIN}/api/v4/metadata`, fetchOptions)
 			.then((response) => {
 				if (response.status === 401) {
 					return null;
 				}
+				// gitlab 没有允许获取header
 				return {
-					ratelimitLimit: +response.headers.get('x-ratelimit-limit')! || 0,
-					ratelimitRemaining: +response.headers.get('x-ratelimit-remaining')! || 0,
-					ratelimitReset: +response.headers.get('x-ratelimit-reset')! || 0,
+					ratelimitLimit: +response.headers.get('ratelimit-limit')! || 0,
+					ratelimitRemaining: +response.headers.get('ratelimit-remaining')! || 0,
+					ratelimitReset: +response.headers.get('ratelimit-reset')! || 0,
 					ratelimitResource: +response.headers.get('ratelimit-resource')! || 0,
-					ratelimitUsed: +response.headers.get('x-ratelimit-used')! || 0,
+					ratelimitUsed: +response.headers.get('ratelimit-observed')! || 0,
 				};
 			})
 			.catch(() => null);

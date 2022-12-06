@@ -86,6 +86,7 @@ const getInitialize = () => {
 			const svgContent = fs.readFileSync(svgPath).toString('utf8');
 			content = content.replace(`__${svg}__`, svgContent);
 		});
+		content = content.replace(`GITLAB_DOMAIN`, process.env.GITLAB_DOMAIN || 'https://gitlab.com');
 		return content;
 	} catch {
 		console.error('Failed to generate initialize.js file.');

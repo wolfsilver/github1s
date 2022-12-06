@@ -78,7 +78,6 @@ export class GitLab1sAuthenticationView {
 
 	public open(notice: string = '', withBarriar = false) {
 		const extensionContext = getExtensionContext();
-		debugger;
 		this.notice = notice;
 		withBarriar && !this.tokenBarrier && (this.tokenBarrier = new Barrier(600 * 1000));
 

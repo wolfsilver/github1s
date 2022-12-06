@@ -87,13 +87,12 @@ export class GitLabFetcher {
 		this._originalRequest = octokit.request;
 		this.request = Object.assign((...args: Parameters<GitlabRequest['request']>) => {
 			return octokit.request(...args).catch(async (error) => {
-				debugger;
 				const errorStatus = (error as any)?.status;
 				if ([401, 403, 404].includes(errorStatus)) {
 					// maybe we have to acquire github access token to continue
 					const repository = await this.resolveCurrentRepository(false);
-					const message = detectErrorMessage(error?.response, !!accessToken, !!repository);
-					await GitLab1sAuthenticationView.getInstance().open('message', true);
+					const message = detectErrorMessage(error, !!accessToken, !!repository);
+					await GitLab1sAuthenticationView.getInstance().open(message, true);
 					return octokit.request(...args);
 				}
 			});
@@ -131,10 +130,10 @@ export class GitLabFetcher {
 		return (this._repositoryPromise = new Promise(async (resolve) => {
 			const [owner = 'conwnet', repo = 'github1s'] = await this.getCurrentOwnerAndRepo();
 			const dataSource = SourcegraphDataSource.getInstance('gitlab');
-			if (useSourcegraphApiFirst && !!(await dataSource.provideRepository(`${owner}/${repo}`))) {
+			if (useSourcegraphApiFirst && !!(await dataSource.provideRepository(`${owner}/${repo}`).catch((e) => false))) {
 				return resolve({ private: false });
 			}
-			return this._originalRequest?.('GET /repos/{owner}/{repo}', { owner, repo }).then(
+			return this._originalRequest?.('GET /projects/{owner}%2F{repo}', { owner, repo }).then(
 				(response) => resolve(response?.data || null),
 				() => resolve(null)
 			);
