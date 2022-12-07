@@ -15,8 +15,8 @@ function getToken(): string {
 export class GitlabRequest {
 	accessToken: string;
 
-	constructor({ auth }) {
-		this.accessToken = auth;
+	constructor({ accessToken }) {
+		this.accessToken = accessToken;
 	}
 
 	public request(command: string, params: Record<string, string | number>) {

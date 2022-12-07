@@ -82,21 +82,21 @@ export class GitLabFetcher {
 	// initial fetcher methods in this way for correct `request/graphql` type inference
 	initFetcherMethods() {
 		const accessToken = GitLabTokenManager.getInstance().getToken();
-		const octokit = new GitlabRequest({ auth: accessToken });
+		const gitlabRequest = new GitlabRequest({ accessToken });
 
-		this._originalRequest = octokit.request;
+		this._originalRequest = gitlabRequest.request.bind(gitlabRequest);
 		this.request = Object.assign((...args: Parameters<GitlabRequest['request']>) => {
-			return octokit.request(...args).catch(async (error) => {
+			return gitlabRequest.request(...args).catch(async (error) => {
 				const errorStatus = (error as any)?.status;
 				if ([401, 403, 404].includes(errorStatus)) {
 					// maybe we have to acquire github access token to continue
 					const repository = await this.resolveCurrentRepository(false);
 					const message = detectErrorMessage(error, !!accessToken, !!repository);
 					await GitLab1sAuthenticationView.getInstance().open(message, true);
-					return octokit.request(...args);
+					return gitlabRequest.request(...args);
 				}
 			});
-		}, octokit.request);
+		}, gitlabRequest.request);
 
 		// this.graphql = Object.assign(async (...args: Parameters<Octokit['graphql']>) => {
 		// 	// graphql API only worked for authenticated users
@@ -134,7 +134,7 @@ export class GitLabFetcher {
 				return resolve({ private: false });
 			}
 			return this._originalRequest?.('GET /projects/{owner}%2F{repo}', { owner, repo }).then(
-				(response) => resolve(response?.data || null),
+				(response) => resolve({ private: response?.data?.visibility === 'private' }),
 				() => resolve(null)
 			);
 		}));
