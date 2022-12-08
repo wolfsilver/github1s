@@ -36,7 +36,7 @@ const detectErrorMessage = (response: any, authenticated: boolean, accessReposit
 	if (response?.status === 403 && +response?.headers?.['x-ratelimit-remaining'] === 0) {
 		return errorMessages.rateLimited[authenticated ? 'authenticated' : 'anonymous'];
 	}
-	if (response?.status === 401 && +response?.data?.message?.includes?.('Bad credentials')) {
+	if (response?.status === 401 && +response?.data?.message?.includes?.('Unauthorized')) {
 		return errorMessages.badCredentials[authenticated ? 'authenticated' : 'anonymous'];
 	}
 	if (response?.status === 404 && !accessRepository) {
@@ -45,7 +45,7 @@ const detectErrorMessage = (response: any, authenticated: boolean, accessReposit
 	if (response?.status === 403) {
 		return errorMessages.noPermission[authenticated ? 'authenticated' : 'anonymous'];
 	}
-	return response?.data?.message || '';
+	return response?.data?.message || response?.data?.error || '';
 };
 
 const USE_SOURCEGRAPH_API_FIRST = 'USE_SOURCEGRAPH_API_FIRST';
@@ -84,7 +84,7 @@ export class GitLabFetcher {
 		const accessToken = GitLabTokenManager.getInstance().getToken();
 		const gitlabRequest = new GitlabRequest({ accessToken });
 
-		this._originalRequest = gitlabRequest.request.bind(gitlabRequest);
+		this._originalRequest = gitlabRequest.request;
 		this.request = Object.assign((...args: Parameters<GitlabRequest['request']>) => {
 			return gitlabRequest.request(...args).catch(async (error) => {
 				const errorStatus = (error as any)?.status;

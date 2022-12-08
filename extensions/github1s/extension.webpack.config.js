@@ -66,7 +66,9 @@ module.exports = /** @type WebpackConfig */ {
 			// GITLAB_CREATE_TOKEN_URL: JSON.stringify('/profile/personal_access_tokens'),
 			// GITLAB_DOMAIN: JSON.stringify('https://gitlab.crc.com.cn'),
 			GITLAB_DOMAIN: JSON.stringify(process.env.GITLAB_DOMAIN || 'https://gitlab.com'),
-			GITLAB_CREATE_TOKEN_URL: JSON.stringify('/-/profile/personal_access_tokens'),
+			GITLAB_CREATE_TOKEN_URL: JSON.stringify(
+				process.env.GITLAB_CREATE_TOKEN_URL || '/-/profile/personal_access_tokens'
+			),
 		}),
 		new webpack.ProvidePlugin({
 			process: 'process/browser.js',

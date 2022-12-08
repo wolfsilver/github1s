@@ -112,8 +112,6 @@ export class GitLab1sDataSource extends DataSource {
 		const encodedPath = encodeFilePath(path);
 		let page = 1;
 		let files = [];
-		// github api will return all files if `recursive` exists, even the value if false
-		const recursiveParams = recursive ? { recursive } : {};
 		const parseTreeItem = (treeItem): DirectoryEntry => ({
 			path: treeItem.path,
 			type: FileTypeMap[treeItem.type] || FileType.File,
@@ -126,9 +124,8 @@ export class GitLab1sDataSource extends DataSource {
 				page,
 				path: encodedPath,
 				...parseRepoFullName(repoFullName),
-				...recursiveParams,
 			};
-			const { data, headers } = await ifetch(
+			const { data, headers } = await fetcher.request(
 				'GET /projects/{owner}%2F{repo}/repository/tree?recursive=true&per_page=100&page={page}&ref={ref}',
 				requestParams
 			);
@@ -147,7 +144,10 @@ export class GitLab1sDataSource extends DataSource {
 		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const requestParams = { owner, repo, ref, path: encodeURIComponent(path) };
-		const { data } = await ifetch('GET /projects/{owner}%2F{repo}/repository/files/{path}?ref={ref}', requestParams);
+		const { data } = await fetcher.request(
+			'GET /projects/{owner}%2F{repo}/repository/files/{path}?ref={ref}',
+			requestParams
+		);
 		return { content: toUint8Array((data as any).content) };
 	}
 
@@ -170,7 +170,7 @@ export class GitLab1sDataSource extends DataSource {
 		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const requestParams = { owner, repo, ref };
-		const { data } = await ifetch('GET /projects/{owner}%2F{repo}/repository/tags', requestParams);
+		const { data } = await fetcher.request('GET /projects/{owner}%2F{repo}/repository/tags', requestParams);
 		return data.map((item) => ({
 			name: item.name,
 			commitSha: item.commit.id,
@@ -199,7 +199,7 @@ export class GitLab1sDataSource extends DataSource {
 	// 			const { owner, repo } = parseRepoFullName(repoFullName);
 	// 			const requestParams = { owner, repo, refAndPath };
 	// 			const requestUrl = `GET /projects/{owner}%2F{repo}/git/extract-ref/{refAndPath}`;
-	// 			const response = await ifetch(requestUrl, requestParams).catch(reject);
+	// 			const response = await fetcher.request(requestUrl, requestParams).catch(reject);
 	// 			response?.data?.ref && this.matchedRefsMap.get(repoFullName)?.push(response.data.ref);
 	// 			return resolve(response?.data || { ref: 'HEAD', path: '' });
 	// 		});
@@ -302,7 +302,7 @@ export class GitLab1sDataSource extends DataSource {
 			author: options?.author,
 		};
 		const requestParams = { owner, repo, ...queryParams };
-		const { data } = await ifetch(
+		const { data } = await fetcher.request(
 			'GET /projects/{owner}%2F{repo}/repository/commits?per_page={per_page}&page={page}&path={path}&ref_name={sha}',
 			requestParams
 		);
@@ -325,7 +325,7 @@ export class GitLab1sDataSource extends DataSource {
 		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const requestParams = { owner, repo, ref };
-		const { data } = await ifetch('GET /projects/{owner}%2F{repo}/repository/commits/{ref}', requestParams);
+		const { data } = await fetcher.request('GET /projects/{owner}%2F{repo}/repository/commits/{ref}', requestParams);
 		return {
 			sha: data.id,
 			author: data.author_name,
@@ -352,7 +352,10 @@ export class GitLab1sDataSource extends DataSource {
 		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const requestParams = { owner, repo, ref };
-		const { data } = await ifetch('GET /projects/{owner}%2F{repo}/repository/commits/{ref}/diff', requestParams);
+		const { data } = await fetcher.request(
+			'GET /projects/{owner}%2F{repo}/repository/commits/{ref}/diff',
+			requestParams
+		);
 		return (
 			data?.map((item) => ({
 				path: item.new_path || item.old_path!,
@@ -378,7 +381,7 @@ export class GitLab1sDataSource extends DataSource {
 		// per_page=100&page={page}
 		const queryParams = { state, page: options?.page, per_page: options?.pageSize, creator: options?.creator };
 		const requestParams = { owner, repo, ...queryParams };
-		const { data } = await ifetch(
+		const { data } = await fetcher.request(
 			'GET /projects/{owner}%2F{repo}/merge_requests?per_page={per_page}&page={page}',
 			requestParams as any
 		);
@@ -402,7 +405,10 @@ export class GitLab1sDataSource extends DataSource {
 		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const pullRequestParams = { owner, repo, pull_number: Number(id) };
-		const { data } = await ifetch('GET /projects/{owner}%2F{repo}/merge_requests/{pull_number}', pullRequestParams);
+		const { data } = await fetcher.request(
+			'GET /projects/{owner}%2F{repo}/merge_requests/{pull_number}',
+			pullRequestParams
+		);
 
 		return {
 			id: `${data.iid}`,
@@ -427,7 +433,7 @@ export class GitLab1sDataSource extends DataSource {
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const pageParams = { per_page: options?.pageSize, page: options?.page };
 		const filesRequestParams = { owner, repo, pull_number: Number(id), ...pageParams };
-		const { data } = await ifetch(
+		const { data } = await fetcher.request(
 			'GET /projects/{owner}%2F{repo}/merge_requests/{pull_number}/changes?per_page={per_page}&page={page}',
 			filesRequestParams
 		);
@@ -470,11 +476,12 @@ export class GitLab1sDataSource extends DataSource {
 	// 	}));
 	// }
 
+	@trySourcegraphApiFirst
 	async provideFileBlameRanges(repoFullName: string, ref: string, path: string): Promise<BlameRange[]> {
 		const fetcher = GitLabFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
 		const requestParams = { owner, repo, ref, path: encodeURIComponent(path) };
-		const { data } = await ifetch(
+		const { data } = await fetcher.request(
 			'GET /projects/{owner}%2F{repo}/repository/files/{path}/blame?ref={ref}',
 			requestParams
 		);
@@ -511,7 +518,8 @@ export class GitLab1sDataSource extends DataSource {
 	}
 
 	async getAvatar(email): Promise<string> {
-		const { data } = await ifetch('GET /avatar?email={email}', { email });
+		const fetcher = GitLabFetcher.getInstance();
+		const { data } = await fetcher.request('GET /avatar?email={email}', { email });
 		return data.avatar_url;
 	}
 

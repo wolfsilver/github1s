@@ -42,7 +42,7 @@ export class GitLabTokenManager {
 	public async validateToken(token?: string): Promise<TokenStatus | null> {
 		const accessToken = token === undefined ? this.getToken() : token;
 		const fetchOptions = accessToken ? { headers: { 'PRIVATE-TOKEN': `${accessToken}` } } : {};
-		return fetch(`${GITLAB_DOMAIN}/api/v4/metadata`, fetchOptions)
+		return fetch(`${GITLAB_DOMAIN}/api/v4/projects?per_page=1`, fetchOptions)
 			.then((response) => {
 				if (response.status === 401) {
 					return null;
