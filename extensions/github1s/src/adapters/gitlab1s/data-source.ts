@@ -29,9 +29,8 @@ import {
 } from '../types';
 import { toUint8Array } from 'js-base64';
 import { matchSorter } from 'match-sorter';
-import { FILE_BLAME_QUERY } from './graphql';
+// import { FILE_BLAME_QUERY } from './graphql';
 import { GitLabFetcher } from './fetcher';
-import ifetch from './gitlab-request';
 import { SourcegraphDataSource } from '../sourcegraph/data-source';
 
 const parseRepoFullName = (repoFullName: string) => {
