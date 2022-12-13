@@ -52,8 +52,8 @@ export class GitLab1sAuthenticationView {
 				case 'validate-token':
 					tokenManager.validateToken(message.data).then((tokenStatus) => postMessage(tokenStatus));
 					break;
-				case 'connect-to-github':
-					vscode.commands.executeCommand('github1s.commands.vscode.connectToGitHub').then((data: any) => {
+				case 'connect-to-gitlab':
+					vscode.commands.executeCommand('github1s.commands.vscode.connectToGitLab').then((data: any) => {
 						if (data && data.error_description) {
 							vscode.window.showErrorMessage(data.error_description);
 						} else if (data && data.access_token) {
@@ -96,7 +96,11 @@ export class GitLab1sAuthenticationView {
 			vscode.Uri.joinPath(extensionContext.extensionUri, 'assets/pages/components.css').toString(),
 			vscode.Uri.joinPath(extensionContext.extensionUri, 'assets/pages/github1s-authentication.css').toString(),
 		];
+		const script = Buffer.from(
+			`window.GITLAB_DOMAIN='${GITLAB_DOMAIN}';window.GITLAB_CREATE_TOKEN_URL='${GITLAB_CREATE_TOKEN_URL}'`
+		);
 		const scripts = [
+			'data:text/javascript;base64,' + script.toString('base64'),
 			vscode.Uri.joinPath(extensionContext.extensionUri, 'assets/pages/gitlab1s-authentication.js').toString(),
 		];
 

@@ -32,6 +32,17 @@ export class GitLabTokenManager {
 		return getExtensionContext().globalState.get(GITLAB_OAUTH_TOKEN) || '';
 	}
 
+	public getHeader(token?: string): Record<string, Record<string, string>> {
+		const accessToken = token === undefined ? this.getToken() : token;
+		if (!accessToken) {
+			return {};
+		}
+		if (accessToken.length >= 60) {
+			return { headers: { Authorization: `Bearer ${accessToken}` } };
+		}
+		return { headers: { 'PRIVATE-TOKEN': `${accessToken}` } };
+	}
+
 	public async setToken(token: string) {
 		const isTokenChanged = this.getToken() !== token;
 		return getExtensionContext()
@@ -40,8 +51,7 @@ export class GitLabTokenManager {
 	}
 
 	public async validateToken(token?: string): Promise<TokenStatus | null> {
-		const accessToken = token === undefined ? this.getToken() : token;
-		const fetchOptions = accessToken ? { headers: { 'PRIVATE-TOKEN': `${accessToken}` } } : {};
+		const fetchOptions = this.getHeader(token);
 		return fetch(`${GITLAB_DOMAIN}/api/v4/projects?per_page=1`, fetchOptions)
 			.then((response) => {
 				if (response.status === 401) {

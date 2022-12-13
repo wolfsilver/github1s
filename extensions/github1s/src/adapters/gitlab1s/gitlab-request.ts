@@ -3,6 +3,7 @@
  */
 import { getExtensionContext } from '@/helpers/context';
 import { reuseable } from '@/helpers/func';
+import { GitLabTokenManager } from './token';
 
 const GITLAB_OAUTH_TOKEN = 'gitlab-oauth-token';
 
@@ -24,9 +25,7 @@ export class GitlabRequest {
 		Object.keys(params).forEach((el) => {
 			url = url.replace(`{${el}}`, `${params[el]}`);
 		});
-		const accessToken = this.accessToken;
-
-		const fetchOptions = accessToken ? { headers: { 'PRIVATE-TOKEN': `${accessToken}` } } : {};
+		const fetchOptions = GitLabTokenManager.getInstance().getHeader(this.accessToken);
 		return fetch(`${GITLAB_DOMAIN}/api/v4` + url, {
 			...fetchOptions,
 			method,
