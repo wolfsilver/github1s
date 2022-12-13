@@ -28,13 +28,21 @@ const ConnectToGitHubBlock = (props) => {
 	`;
 };
 
-const ManualInputTokenBlock = ({ onTokenChange, ...props }) => {
-	const createTokenLink = 'https://github.com/settings/tokens/new?scopes=repo&description=GitHub1s';
+const ManualInputTokenBlock = ({ onTokenChange, isGitLab, ...props }) => {
+	const [createTokenLink, setCreateTokenLink] = useState(
+		'https://github.com/settings/tokens/new?scopes=repo&description=GitHub1s'
+	);
 	const [inputToken, setInputToken] = useState('');
 	const [loading, setLoading] = useState(false);
 	const handleInputTokenChange = useCallback((event) => {
 		setInputToken(event.target.value);
 	}, []);
+
+	useEffect(() => {
+		if (isGitLab) {
+			setCreateTokenLink(GITLAB_DOMAIN + GITLAB_CREATE_TOKEN_URL + '?scopes=api&name=GitLab1s');
+		}
+	}, [isGitLab]);
 
 	const handleSubmit = useCallback(() => {
 		if (inputToken) {
@@ -74,13 +82,17 @@ const ManualInputTokenBlock = ({ onTokenChange, ...props }) => {
 
 const TokenEditPage = ({ token, onCancel, ...props }) => {
 	const cancelButton = token ? html`<${VscodeButton} onClick=${onCancel}>Cancel<//>` : '';
+	const [isGitLab, setIsGitLab] = useState(false);
+	useEffect(() => {
+		setIsGitLab(document.title.includes('GitLab1s'));
+	}, []);
 
 	return html`
 		<div class="token-edit-page" ...${props}>
 			<div class="page-title">Set AccessToken</div>
 			<${EditTokenDescription} />
-			<${ConnectToGitHubBlock} />
-			<${ManualInputTokenBlock} />
+			${isGitLab ? '' : html`<${ConnectToGitHubBlock} />`}
+			<${ManualInputTokenBlock} isGitLab=${isGitLab} />
 			<div class="flex-line">${cancelButton}</div>
 		</div>
 	`;
