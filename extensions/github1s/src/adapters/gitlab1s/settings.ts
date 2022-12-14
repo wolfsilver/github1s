@@ -39,8 +39,8 @@ export class GitLab1sSettingsViewProvider implements vscode.WebviewViewProvider 
 				case 'open-detail-page':
 					vscode.commands.executeCommand('github1s.commands.openGitHub1sAuthPage').then(() => postMessage());
 					break;
-				case 'connect-to-github':
-					vscode.commands.executeCommand('github1s.commands.vscode.connectToGitHub').then((data: any) => {
+				case 'connect-to-gitlab':
+					vscode.commands.executeCommand('github1s.commands.vscode.connectToGitLab').then((data: any) => {
 						if (data && data.error_description) {
 							vscode.window.showErrorMessage(data.error_description);
 						} else if (data && data.access_token) {

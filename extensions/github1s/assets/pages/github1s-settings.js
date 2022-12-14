@@ -28,6 +28,23 @@ const ConnectToGitHubBlock = (props) => {
 	`;
 };
 
+const ConnectToGitLabBlock = (props) => {
+	const [loading, setLoading] = useState(false);
+	const handleButtonClick = useCallback(() => {
+		setLoading(true);
+		postMessage('connect-to-gitlab').then(() => setLoading(false));
+	}, []);
+
+	return html`
+		<div class="authentication-method-block" ...${props}>
+			<h3 class="authentication-method-title">Authenticating OAuth App</h3>
+			<div class="flex-line">
+				<${VscodeButton} loading=${loading} onClick=${handleButtonClick}>Connect to GitLab<//>
+			</div>
+		</div>
+	`;
+};
+
 const ManualInputTokenBlock = ({ onTokenChange, isGitLab, ...props }) => {
 	const [createTokenLink, setCreateTokenLink] = useState(
 		'https://github.com/settings/tokens/new?scopes=repo&description=GitHub1s'
@@ -91,7 +108,7 @@ const TokenEditPage = ({ token, onCancel, ...props }) => {
 		<div class="token-edit-page" ...${props}>
 			<div class="page-title">Set AccessToken</div>
 			<${EditTokenDescription} />
-			${isGitLab ? '' : html`<${ConnectToGitHubBlock} />`}
+			${isGitLab ? html`<${ConnectToGitLabBlock} />` : html`<${ConnectToGitHubBlock} />`}
 			<${ManualInputTokenBlock} isGitLab=${isGitLab} />
 			<div class="flex-line">${cancelButton}</div>
 		</div>
