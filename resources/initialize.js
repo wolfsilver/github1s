@@ -51,7 +51,16 @@
 	let platformName = 'GitHub';
 	let platformConfig = {};
 	const pathParts = window.location.pathname.split('/').filter(Boolean);
-	if (window.location.hostname.match(/\.?gitlab1s\.com$/i)) {
+	if (
+		[
+			'localhost',
+			'gitlab.woa.cool',
+			'gitlab1s.woa.cool',
+			'gitlabcode.woa.cool',
+			'5000-wolfsilver-github1s-ta4nlg6dd0n.ws-us77.gitpod.io',
+			'wolfsilver-github1s-6wp6rpg25gr6-5000.preview.app.github.dev',
+		].includes(window.location.hostname)
+	) {
 		const dashIndex = pathParts.indexOf('-');
 		const repository = (dashIndex < 0 ? pathParts : pathParts.slice(0, dashIndex)).join('/');
 
@@ -66,7 +75,7 @@
 			logo: {
 				title: 'Open on GitLab',
 				icon: staticAssetsPrefix + '/config/gitlab.svg',
-				onClick: () => (repository ? openOfficialPage(GITLAB_DOMAIN) : openGitHub1sPage()),
+				onClick: () => (repository ? openOfficialPage(`GITLAB_DOMAIN`) : openGitHub1sPage()),
 			},
 		};
 	} else if (window.location.hostname.match(/\.?bitbucket1s\.org$/i)) {
