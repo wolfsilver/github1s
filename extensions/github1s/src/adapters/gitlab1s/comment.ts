@@ -7,7 +7,6 @@ import { adapterManager } from '..';
 let commentId = 1;
 
 class NoteComment implements vscode.Comment {
-	id: number;
 	label: string | undefined;
 	savedBody: string | vscode.MarkdownString; // for the Cancel button
 	constructor(
@@ -15,9 +14,9 @@ class NoteComment implements vscode.Comment {
 		public mode: vscode.CommentMode,
 		public author: vscode.CommentAuthorInformation,
 		public parent?: vscode.CommentThread,
-		public contextValue?: string
+		public contextValue?: string,
+		public id?: number
 	) {
-		this.id = ++commentId;
 		this.savedBody = this.body;
 	}
 }
@@ -31,6 +30,9 @@ export function activate(context: vscode.ExtensionContext) {
 	commentController.commentingRangeProvider = {
 		provideCommentingRanges: (document: vscode.TextDocument, token: vscode.CancellationToken) => {
 			debugger;
+			if (!document.uri.query) {
+				return;
+			}
 			const lineCount = document.lineCount;
 			renderComments(document);
 			return [new vscode.Range(0, 0, lineCount - 1, 0)];
@@ -195,28 +197,29 @@ export function activate(context: vscode.ExtensionContext) {
 		const list = await Repository.getInstance(scheme, repo).getComment(query?.id as string);
 		console.log('###', list);
 		debugger;
-		list.forEach(
-			({ individual_note, notes }) =>
-				!individual_note &&
-				notes.forEach((comment) => {
-					commentController.createCommentThread(
-						document.uri,
-						new vscode.Range(
-							new vscode.Position(comment.position.line_range.start.new_line, 0),
-							new vscode.Position(comment.position.line_range.end.new_line, 0)
-						),
-						[
-							{
-								body: comment.body,
-								mode: 1,
-								author: {
-									name: comment.author.name,
-									iconPath: comment.author.avatar_url,
-								},
-							},
-						]
+		list.forEach(({ notes }) => {
+			const comments = notes.filter((note) => note.type === 'DiffNote');
+			if (comments.length) {
+				const thread = commentController.createCommentThread(
+					document.uri,
+					new vscode.Range(
+						new vscode.Position(comments[0].position.line_range.start.new_line, 0),
+						new vscode.Position(comments[0].position.line_range.end.new_line, 0)
+					),
+					[]
+				);
+				thread.collapsibleState = comments.some((c) => c.resolved === false) ? 1 : 0;
+				thread.comments = comments.map((comment) => {
+					return new NoteComment(
+						new vscode.MarkdownString(comment.body),
+						vscode.CommentMode.Preview,
+						{ name: comment.author.name, iconPath: comment.author.avatar_url },
+						thread,
+						comments.length ? 'canDelete' : undefined,
+						comment.noteable_id
 					);
-				})
-		);
+				});
+			}
+		});
 	}
 }
