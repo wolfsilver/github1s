@@ -16,6 +16,7 @@ interface VSCodeChangedFile {
 	baseFileUri: vscode.Uri;
 	headFileUri: vscode.Uri;
 	status: adapterTypes.FileChangeStatus;
+	id?: string;
 }
 
 // get the change files of a codeReview
@@ -44,6 +45,7 @@ export const getCodeReviewChangedFiles = async (codeReview: adapterTypes.CodeRev
 			baseFileUri: vscode.Uri.joinPath(baseRootUri, baseFilePath),
 			headFileUri: vscode.Uri.joinPath(headRootUri, headFilePath),
 			status: changedFile.status,
+			id: codeReview.id,
 		};
 	});
 };
@@ -139,6 +141,7 @@ export const getChangedFileDiffCommand = (changedFile: VSCodeChangedFile): vscod
 	const title = getChangedFileDiffTitle(baseFileUri, headFileUri, status);
 	const query = queryString.stringify({
 		status,
+		id: changedFile.id,
 		base: baseFileUri.with({ query: '' }).toString(),
 		head: headFileUri.with({ query: '' }).toString(),
 	});

@@ -130,6 +130,22 @@ export class Repository {
 		return this._codeReviewManager.hasMoreChangedFiles(...args);
 	}
 
+	getComment(...args: Parameters<CodeReviewManager['getComment']>) {
+		return this._codeReviewManager.getComment(...args);
+	}
+
+	addComment(...args: Parameters<CodeReviewManager['addComment']>) {
+		return this._codeReviewManager.addComment(...args);
+	}
+
+	modifyComment(...args: Parameters<CodeReviewManager['modifyComment']>) {
+		return this._codeReviewManager.modifyComment(...args);
+	}
+
+	deleteComment(...args: Parameters<CodeReviewManager['deleteComment']>) {
+		return this._codeReviewManager.deleteComment(...args);
+	}
+
 	async getFileBlameRanges(ref: string, path: string) {
 		const cacheKey = `${ref} ${path}`;
 		if (!this._blameRangesCache.has(cacheKey)) {

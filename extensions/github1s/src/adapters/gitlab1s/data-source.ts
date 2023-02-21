@@ -23,6 +23,7 @@ import {
 	SymbolReferences,
 	FileChangeStatus,
 	ChangedFile,
+	Comment,
 	SymbolHover,
 	CommitsQueryOptions,
 	CodeReviewsQueryOptions,
@@ -516,7 +517,7 @@ export class GitLab1sDataSource extends DataSource {
 		return this.avatarPromiseMap.get(email);
 	}
 
-	async getAvatar(email): Promise<string> {
+	async getAvatar(email: string): Promise<string> {
 		const fetcher = GitLabFetcher.getInstance();
 		const { data } = await fetcher.request('GET /avatar?email={email}', { email });
 		return data.avatar_url;
@@ -557,5 +558,54 @@ export class GitLab1sDataSource extends DataSource {
 
 	provideUserAvatarLink(user: string): string {
 		return ``;
+	}
+
+	// https://docs.gitlab.com/15.8/ee/api/discussions.html#list-project-merge-request-discussion-items
+	async getMrComment(repoFullName: string, id: string): Promise<Comment[]> {
+		const fetcher = GitLabFetcher.getInstance();
+		const { owner, repo } = parseRepoFullName(repoFullName);
+		const requestParams = { owner, repo, id };
+		const { data } = await fetcher.request(
+			'GET /projects/{owner}%2F{repo}/merge_requests/{id}/discussions',
+			requestParams
+		);
+		console.log('## MR ', id, data);
+		return data;
+	}
+
+	async createComment(repoFullName: string, id: string, body: string, position: string): Promise<Comment[]> {
+		const fetcher = GitLabFetcher.getInstance();
+		const { owner, repo } = parseRepoFullName(repoFullName);
+		const requestParams = { owner, repo, id, body, position };
+		const res = await fetcher.request(
+			'POST /projects/{owner}%2F{repo}/merge_requests/{id}/discussions?body={body}&{position}',
+			requestParams
+		);
+		console.log('## MR ', id, res);
+		return res;
+	}
+
+	async modifyComment(repoFullName: string, id: string, noteId: number, body: string): Promise<Comment[]> {
+		const fetcher = GitLabFetcher.getInstance();
+		const { owner, repo } = parseRepoFullName(repoFullName);
+		const requestParams = { owner, repo, id, noteId, body };
+		const res = await fetcher.request(
+			'PUT /projects/{owner}%2F{repo}/merge_requests/{id}/discussions/{noteId}',
+			requestParams
+		);
+		console.log('## MR ', id, res);
+		return res;
+	}
+
+	async deleteComment(repoFullName: string, id: string, noteId: number): Promise<Comment[]> {
+		const fetcher = GitLabFetcher.getInstance();
+		const { owner, repo } = parseRepoFullName(repoFullName);
+		const requestParams = { owner, repo, id, noteId };
+		const res = await fetcher.request(
+			'DELETE /projects/{owner}%2F{repo}/merge_requests/{id}/discussions/{noteId}',
+			requestParams
+		);
+		console.log('## MR ', id, res);
+		return res;
 	}
 }

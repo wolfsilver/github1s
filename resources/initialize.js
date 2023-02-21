@@ -51,7 +51,7 @@
 	let platformName = 'GitHub';
 	let platformConfig = {};
 	const pathParts = window.location.pathname.split('/').filter(Boolean);
-	if (window.location.hostname.match(/\.?gitlab1s\.com$/i)) {
+	if (window.location.hostname.match(/\.?gitlab1s\.com$/i) || localStorage.PLATFORM_NAME === 'GitLab') {
 		const dashIndex = pathParts.indexOf('-');
 		const repository = (dashIndex < 0 ? pathParts : pathParts.slice(0, dashIndex)).join('/');
 

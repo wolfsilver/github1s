@@ -312,7 +312,62 @@
         "category": "GitHub1s",
         "icon": "$(globe)",
         "enablement": "github1s:adapters:default:platformName != 'GitHub' && github1s:adapters:default:platformName != 'GitLab' && github1s:adapters:default:platformName != 'Bitbucket' && github1s:adapters:default:platformName != 'npm'"
-      }
+      },
+      {
+				"command": "github1s.commands.createNote",
+				"title": "Create Note",
+				"enablement": "!commentIsEmpty"
+			},
+			{
+				"command": "github1s.commands.replyNote",
+				"title": "Reply",
+				"enablement": "!commentIsEmpty"
+			},
+			{
+				"command": "github1s.commands.editNote",
+				"title": "Edit",
+				"icon": {
+					"dark": "resources/edit_inverse.svg",
+					"light": "resources/edit.svg"
+				}
+			},
+			{
+				"command": "github1s.commands.deleteNote",
+				"title": "Delete",
+				"icon": {
+					"dark": "resources/close_inverse.svg",
+					"light": "resources/close.svg"
+				}
+			},
+			{
+				"command": "github1s.commands.deleteNoteComment",
+				"title": "Delete",
+				"icon": {
+					"dark": "resources/close_inverse.svg",
+					"light": "resources/close.svg"
+				}
+			},
+			{
+				"command": "github1s.commands.saveNote",
+				"title": "Save"
+			},
+			{
+				"command": "github1s.commands.cancelsaveNote",
+				"title": "Cancel"
+			},
+			{
+				"command": "github1s.commands.startDraft",
+				"title": "Start Draft",
+				"enablement": "!commentIsEmpty"
+			},
+			{
+				"command": "github1s.commands.finishDraft",
+				"title": "Finish Draft"
+			},
+			{
+				"command": "github1s.commands.dispose",
+				"title": "Remove All Notes"
+			}
     ],
     "colors": [
       {
@@ -456,7 +511,23 @@
         {
           "command": "github1s.commands.closeEditorGutterBlame",
           "when": "false"
-        }
+        },
+        {
+					"command": "github1s.commands.createNote",
+					"when": "false"
+				},
+				{
+					"command": "github1s.commands.replyNote",
+					"when": "false"
+				},
+				{
+					"command": "github1s.commands.deleteNote",
+					"when": "false"
+				},
+				{
+					"command": "github1s.commands.deleteNoteComment",
+					"when": "false"
+				}
       ],
       "view/title": [
         {
@@ -593,7 +664,60 @@
           "when": "!isInDiffEditor && github1s:features:gutterBlame:enabled && github1s:features:gutterBlame:open",
           "group": "navigation@4"
         }
-      ]
+      ],
+			"comments/commentThread/title": [
+				{
+					"command": "github1s.commands.deleteNote",
+					"group": "navigation",
+					"when": "commentController == github1s-comment && !commentThreadIsEmpty"
+				}
+			],
+			"comments/commentThread/context": [
+				{
+					"command": "github1s.commands.createNote",
+					"group": "inline",
+					"when": "commentController == github1s-comment && commentThreadIsEmpty"
+				},
+				{
+					"command": "github1s.commands.replyNote",
+					"group": "inline",
+					"when": "commentController == github1s-comment && !commentThreadIsEmpty"
+				},
+				{
+					"command": "github1s.commands.startDraft",
+					"group": "inline",
+					"when": "commentController == github1s-comment && commentThreadIsEmpty"
+				},
+				{
+					"command": "github1s.commands.finishDraft",
+					"group": "inline",
+					"when": "commentController == github1s-comment && commentThread == draft"
+				}
+			],
+			"comments/comment/title": [
+				{
+					"command": "github1s.commands.editNote",
+					"group": "group@1",
+					"when": "commentController == github1s-comment"
+				},
+				{
+					"command": "github1s.commands.deleteNoteComment",
+					"group": "group@2",
+					"when": "commentController == github1s-comment && comment == canDelete"
+				}
+			],
+			"comments/comment/context": [
+				{
+					"command": "github1s.commands.cancelsaveNote",
+					"group": "inline@1",
+					"when": "commentController == github1s-comment"
+				},
+				{
+					"command": "github1s.commands.saveNote",
+					"group": "inline@2",
+					"when": "commentController == github1s-comment"
+				}
+			]
     }
   },
   "scripts": {

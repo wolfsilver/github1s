@@ -155,6 +155,16 @@ export interface ChangedFile {
 	base?: string;
 }
 
+export interface Comment {
+	scope?: ResourceScope;
+	status: FileChangeStatus;
+	path: string;
+	// only exists for renamed file
+	previousPath?: string;
+	head?: string;
+	base?: string;
+}
+
 export interface BlameRange {
 	age: number;
 	startingLine: number; // starts from 1
@@ -288,6 +298,19 @@ export class DataSource {
 
 	provideUserAvatarLink(user: string): string {
 		return '';
+	}
+
+	getMrComment(repo: string, id: string, options?: CommonQueryOptions): Promisable<Comment[] | null> {
+		return [];
+	}
+	createComment(repo: string, id: string, body: string, position: string): Promisable<Comment[] | null> {
+		return [];
+	}
+	modifyComment(repo: string, id: string, noteId: number, body: string): Promisable<Comment[] | null> {
+		return [];
+	}
+	deleteComment(repo: string, id: string, noteId: number): Promisable<Comment[] | null> {
+		return [];
 	}
 }
 

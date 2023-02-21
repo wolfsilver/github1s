@@ -14,6 +14,7 @@ import { registerGitHub1sCommands } from '@/commands';
 import { updateSourceControlChanges } from '@/changes';
 import { adapterManager, registerAdapters } from '@/adapters';
 import { addRecentRepositories, setExtensionContext } from '@/helpers/context';
+import { activate as Active } from './adapters/gitlab1s/comment';
 
 const browserUrlManager = {
 	href: () => vscode.commands.executeCommand('github1s.commands.vscode.getBrowserUrl') as Promise<string>,
@@ -41,6 +42,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		registerCustomViews(),
 		updateSourceControlChanges(),
 		decorateStatusBar(),
+		Active(context),
 	]);
 
 	initialVSCodeState();
