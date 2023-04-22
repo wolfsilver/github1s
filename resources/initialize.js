@@ -2,7 +2,7 @@
 	/*** begin config block ***/
 	const staticAssetsPath = '/static' + (window.staticHashCode ? '/' + window.staticHashCode : '');
 	const staticAssetsPrefix = window.location.origin + staticAssetsPath;
-	const nodeModulesPrefix = staticAssetsPrefix + '/node_modules';
+	const nodeModulesPrefix = staticAssetsPrefix + '/modules';
 
 	Object.keys(self.webPackagePaths).forEach((key) => {
 		self.webPackagePaths[key] = `${nodeModulesPrefix}/${key}/${self.webPackagePaths[key]}`;
@@ -51,16 +51,7 @@
 	let platformName = 'GitHub';
 	let platformConfig = {};
 	const pathParts = window.location.pathname.split('/').filter(Boolean);
-	if (
-		[
-			'localhost',
-			'gitlab.woa.cool',
-			'gitlab1s.woa.cool',
-			'gitlabcode.woa.cool',
-			'5000-wolfsilver-github1s-ta4nlg6dd0n.ws-us77.gitpod.io',
-			'wolfsilver-github1s-6wp6rpg25gr6-5000.preview.app.github.dev',
-		].includes(window.location.hostname)
-	) {
+	if (window.location.hostname.includes('gitlab')) {
 		const dashIndex = pathParts.indexOf('-');
 		const repository = (dashIndex < 0 ? pathParts : pathParts.slice(0, dashIndex)).join('/');
 
@@ -281,11 +272,11 @@
 
 		// prettier-ignore
 		const notificationBlocksHtml = notifications.map((item) => {
-				const linkHtml = item.link ? ' <a class="notification-link" href="' + item.link + '" target="_blank">See more</a>' : '';
-				const titleHtml = '<div class="notification-main"><div class="notification-title">' + item.title + '</div>';
-				const contentHtml = '<div class="notification-content">' + item.content + linkHtml + '</div></div>';
-				return titleHtml + contentHtml;
-			});
+			const linkHtml = item.link ? ' <a class="notification-link" href="' + item.link + '" target="_blank">See more</a>' : '';
+			const titleHtml = '<div class="notification-main"><div class="notification-title">' + item.title + '</div>';
+			const contentHtml = '<div class="notification-content">' + item.content + linkHtml + '</div></div>';
+			return titleHtml + contentHtml;
+		});
 		const notificationHtml =
 			notificationBlocksHtml +
 			'<div class="notification-footer"><button class="notification-confirm-button">OK</button>' +

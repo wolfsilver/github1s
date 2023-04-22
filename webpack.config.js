@@ -78,14 +78,8 @@ const scanGitHub1sExtensions = () => {
 
 const getInitialize = () => {
 	try {
-		const svgs = ['github', 'gitlab', 'bitbucket', 'npm'];
 		const initializePath = path.join(APP_ROOT, `resources/initialize.js`);
 		let content = fs.readFileSync(initializePath).toString('utf8');
-		svgs.forEach((svg) => {
-			const svgPath = path.join(APP_ROOT, `resources/${svg}.svg`);
-			const svgContent = fs.readFileSync(svgPath).toString('utf8');
-			content = content.replace(`__${svg}__`, svgContent);
-		});
 		content = content.replace(/GITLAB_DOMAIN/g, process.env.GITLAB_DOMAIN || 'https://gitlab.com');
 		return content;
 	} catch {
@@ -116,7 +110,7 @@ const VSCODE_NODE_MODULES = [
 		to({ context, absoluteFilename }) {
 			const relativePath = path.relative(context, absoluteFilename);
 			const relativeDir = path.dirname(relativePath.replace('vscode-web/node_modules/', ''));
-			return `static/node_modules/${relativeDir}/[name][ext]`;
+			return `static/modules/${relativeDir}/[name][ext]`;
 		},
 	}));
 
@@ -129,6 +123,7 @@ module.exports = {
 				{ from: 'resources/favicon*', to: '[name][ext]' },
 				{ from: 'resources/manifest.json', to: '[name][ext]' },
 				{ from: 'resources/robots.txt', to: '[name][ext]' },
+				{ from: 'resources/functions', to: 'functions' },
 				{
 					from: 'node_modules/@github1s/vscode-web/dist/extensions/**',
 					to({ context, absoluteFilename }) {
@@ -156,6 +151,10 @@ module.exports = {
 						dot: true,
 						ignore: ['**/node_modules/**'],
 					},
+				},
+				{
+					from: 'resources/{github.svg,gitlab.svg,bitbucket.svg,npm.svg}',
+					to: 'static/config/[name][ext]',
 				},
 				...VSCODE_NODE_MODULES,
 			].filter(Boolean),
