@@ -144,6 +144,11 @@ export class GitHub1sFileSystemProvider implements FileSystemProvider, Disposabl
 	}
 
 	stat(uri: Uri): FileStat | Thenable<FileStat> {
+		if (uri?.authority && !uri?.authority.includes('+')) {
+			// css 文件中存在引用时(@import, background-image等)，会触发请求
+			console.warn('ignore file stat', uri);
+			return null as unknown as FileStat;
+		}
 		return this.lookup(uri, false);
 	}
 
