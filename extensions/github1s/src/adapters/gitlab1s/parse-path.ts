@@ -79,15 +79,17 @@ const parsePullsUrl = async (path: string): Promise<RouterState> => {
 
 const parsePullUrl = async (path: string): Promise<RouterState> => {
 	const pathParts = parsePath(path).pathname!.split('/').filter(Boolean);
-	const [owner, repo, , _pageType, codeReviewId] = pathParts;
-	const repoFullName = `${owner}/${repo}`;
-	const codeReview = await GitLab1sDataSource.getInstance().provideCodeReview(repoFullName, codeReviewId);
+	const dashIndex = pathParts.indexOf('-');
+	const repo = (dashIndex < 0 ? pathParts : pathParts.slice(0, dashIndex)).join('/');
+	const restParts = dashIndex < 0 ? [] : pathParts.slice(dashIndex + 2);
+	const dataSource = GitLab1sDataSource.getInstance();
+	const codeReview = await dataSource.provideCodeReview(repo, restParts.join('/'));
 
 	return {
-		repo: `${owner}/${repo}`,
+		repo,
 		pageType: PageType.CodeReview,
 		ref: codeReview.base.commitSha,
-		codeReviewId,
+		codeReviewId: codeReview.id,
 	};
 };
 
