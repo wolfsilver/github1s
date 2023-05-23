@@ -68,12 +68,12 @@ const trySourcegraphApiFirst = (_target: any, propertyKey: string, descriptor: P
 
 	descriptor.value = async function <T extends (...args) => Promise<any>>(...args: Parameters<T>) {
 		// return originalMethod.apply(this, args);
-		const githubFetcher = GitLabFetcher.getInstance();
-		if (await githubFetcher.useSourcegraphApiFirst(args[0])) {
-			try {
-				return await sourcegraphDataSource[propertyKey](...args);
-			} catch (e) {}
-		}
+		// const githubFetcher = GitLabFetcher.getInstance();
+		// if (await githubFetcher.useSourcegraphApiFirst(args[0])) {
+		// 	try {
+		// 		return await sourcegraphDataSource[propertyKey](...args);
+		// 	} catch (e) {}
+		// }
 		return originalMethod.apply(this, args);
 	};
 };
