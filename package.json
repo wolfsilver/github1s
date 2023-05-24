@@ -40,7 +40,7 @@
     "build": "./scripts/build.sh",
     "yalc": "yalc publish vscode-web && yalc add -D @github1s/vscode-web",
     "build:vscode": "cd vscode-web && yarn build",
-    "vercel-build": "USE_HASH_HTML=true yarn build && yarn hash && rm -rf public && mv dist public && cd api/vscode-unpkg && yarn install",
+    "vercel-build": "USE_HASH_HTML=true yarn build && yarn hash && rm -rf public && mv dist public",
     "hash": "./scripts/hash.sh",
     "package": "yarn webpack",
     "watch": "rm -rf dist && run-p watch:*",

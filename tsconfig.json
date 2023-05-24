@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"module": "amd",
+		"module": "CommonJS",
 		"moduleResolution": "node",
 		"experimentalDecorators": true,
 		"noImplicitReturns": true,
