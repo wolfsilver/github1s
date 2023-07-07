@@ -19,6 +19,8 @@ export class GitLabTokenManager {
 	private static instance: GitLabTokenManager | null = null;
 	private _emitter = new vscode.EventEmitter<string>();
 	public onDidChangeToken = this._emitter.event;
+	private currentUsername = '';
+	private currentUserAvata = '';
 
 	private constructor() {}
 	public static getInstance(): GitLabTokenManager {
@@ -26,6 +28,13 @@ export class GitLabTokenManager {
 			return GitLabTokenManager.instance;
 		}
 		return (GitLabTokenManager.instance = new GitLabTokenManager());
+	}
+
+	public getCurrentUsername() {
+		return this.currentUsername;
+	}
+	public getCurrentUserAvata() {
+		return this.currentUserAvata;
 	}
 
 	public getToken(): string {
@@ -52,11 +61,14 @@ export class GitLabTokenManager {
 
 	public async validateToken(token?: string): Promise<TokenStatus | null> {
 		const fetchOptions = this.getHeader(token);
-		return fetch(`${GITLAB_DOMAIN}/api/v4/projects?per_page=1`, fetchOptions)
-			.then((response) => {
+		return fetch(`${GITLAB_DOMAIN}/api/v4/user?per_page=1`, fetchOptions)
+			.then(async (response) => {
 				if (response.status === 401) {
 					return null;
 				}
+				const data = await response.json();
+				this.currentUsername = data.name || data.username;
+				this.currentUserAvata = data.avatar_url;
 				// TODO gitlab does not support get cros headers
 				return {
 					ratelimitLimit: +response.headers.get('ratelimit-limit')! || 0,

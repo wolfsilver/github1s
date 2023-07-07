@@ -8,6 +8,7 @@ import { PageType, RouterState } from '@/adapters/types';
 import { GitHub1sFileSearchProvider } from '@/providers/file-search';
 import { GitHub1sSubmoduleDecorationProvider } from '@/providers/decorations/submodule';
 import { GitHub1sChangedFileDecorationProvider } from '@/providers/decorations/changed-file';
+import { GitHub1sCommentDecorationProvider } from '@/providers/decorations/comment';
 import { GitHub1sSourceControlDecorationProvider } from '@/providers/decorations/source-control';
 
 const sortedEqual = (source: any[], target: any[]) => {
@@ -39,6 +40,7 @@ export const explorerRouterListener = (currentState: RouterState, previousState:
 		// TODO: maybe we should update the editors but not close it
 		vscode.commands.executeCommand('workbench.action.closeAllGroups');
 
+		GitHub1sCommentDecorationProvider.getInstance().updateDecorations();
 		GitHub1sChangedFileDecorationProvider.getInstance().updateDecorations();
 		GitHub1sSubmoduleDecorationProvider.getInstance().updateDecorations();
 		GitHub1sSourceControlDecorationProvider.getInstance().updateDecorations();

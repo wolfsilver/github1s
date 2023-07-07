@@ -168,7 +168,10 @@ export class CodeReviewTreeDataProvider implements vscode.TreeDataProvider<vscod
 				command,
 				description: true,
 				resourceUri: changedFile.headFileUri.with({
-					query: queryString.stringify({ changeStatus: changedFile.status }),
+					query: queryString.stringify({
+						changeStatus: changedFile.status,
+						prNumber: codeReview.id,
+					}),
 				}),
 				collapsibleState: vscode.TreeItemCollapsibleState.None,
 			};

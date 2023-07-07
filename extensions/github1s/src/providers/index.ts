@@ -11,6 +11,7 @@ import { GitHub1sFileSearchProvider } from './file-search';
 import { GitHub1sTextSearchProvider } from './text-search';
 import { GitHub1sSubmoduleDecorationProvider } from './decorations/submodule';
 import { GitHub1sChangedFileDecorationProvider } from './decorations/changed-file';
+import { GitHub1sCommentDecorationProvider } from './decorations/comment';
 import { GitHub1sSourceControlDecorationProvider } from './decorations/source-control';
 import { GitHub1sDefinitionProvider } from './definition';
 import { GitHub1sReferenceProvider } from './reference';
@@ -42,6 +43,7 @@ export const registerVSCodeProviders = () => {
 
 	context.subscriptions.push(
 		vscode.window.registerFileDecorationProvider(GitHub1sSubmoduleDecorationProvider.getInstance()),
+		vscode.window.registerFileDecorationProvider(GitHub1sCommentDecorationProvider.getInstance()),
 		vscode.window.registerFileDecorationProvider(GitHub1sChangedFileDecorationProvider.getInstance()),
 		vscode.window.registerFileDecorationProvider(GitHub1sSourceControlDecorationProvider.getInstance()),
 		// provider a readonly empty file for diff

@@ -2,6 +2,7 @@
  * @file GitHub1s Type Definitions
  * @author netcon
  */
+import * as vscode from 'vscode';
 
 export type Promisable<T> = PromiseLike<T> | T;
 
@@ -153,6 +154,7 @@ export interface ChangedFile {
 	previousPath?: string;
 	head?: string;
 	base?: string;
+	diff?: string;
 }
 
 export interface Comment {
@@ -163,6 +165,7 @@ export interface Comment {
 	previousPath?: string;
 	head?: string;
 	base?: string;
+	notes: any[];
 }
 
 export interface BlameRange {
@@ -303,14 +306,31 @@ export class DataSource {
 	getMrComment(repo: string, id: string, options?: CommonQueryOptions): Promisable<Comment[] | null> {
 		return [];
 	}
+	getMrVersion(repo: string, id: string): Promisable<{
+    "head_commit_sha": string;
+    "base_commit_sha": string;
+    "start_commit_sha": string;
+	}> {
+		return null as unknown as {
+    "head_commit_sha": string;
+    "base_commit_sha": string;
+    "start_commit_sha": string;
+	};
+	}
 	createComment(repo: string, id: string, body: string, position: string): Promisable<Comment[] | null> {
 		return [];
 	}
-	modifyComment(repo: string, id: string, noteId: number, body: string): Promisable<Comment[] | null> {
+	replyComment(repo: string, id: string, noteId: number, body: string): Promisable<Comment[] | null> {
 		return [];
 	}
-	deleteComment(repo: string, id: string, noteId: number): Promisable<Comment[] | null> {
+	modifyComment(repo: string, id: string, discussionId: number, noteId: number, body: string): Promisable<Comment[] | null> {
 		return [];
+	}
+	deleteComment(repo: string, id: string, discussionId: number, noteId: number): Promisable<Comment[] | null> {
+		return [];
+	}
+	getUserInfo(): Promisable<any>{
+		return {}
 	}
 }
 

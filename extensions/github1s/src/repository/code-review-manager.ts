@@ -2,10 +2,11 @@
  * @file Code Review Manager
  * @author netcon
  */
-
+import * as vscode from 'vscode';
 import { reuseable } from '@/helpers/func';
 import { ChangedFile, Comment, CodeReview } from '@/adapters/types';
 import { adapterManager } from '@/adapters';
+import { GitHub1sCommentDecorationProvider } from '@/providers/decorations/comment';
 
 // manage changed files for a code review
 class CodeReviewChangedFilesManager {
@@ -89,6 +90,20 @@ export class CommentManager {
 		return this._commentsList;
 	});
 
+	fileHasComments = (notes) => {
+		const decorated = GitHub1sCommentDecorationProvider.getInstance();
+		const [note] = notes;
+		if (note?.position) {
+			const isNewFile = !!note.position.new_line;
+			decorated.updateFileComments(
+				undefined,
+				this._codeReviewId,
+				`/${isNewFile ? note.position.new_path : note.position.old_path}`,
+				true
+			);
+		}
+	};
+
 	loadMore = reuseable(async (): Promise<Comment[]> => {
 		const dataSource = await adapterManager.getAdapter(this._scheme).resolveDataSource();
 		const comments = await dataSource.getMrComment(this._repo, this._codeReviewId, {
@@ -101,6 +116,9 @@ export class CommentManager {
 		this._currentPage += 1;
 		this._hasMore = comments.length === this._pageSize;
 		(this._commentsList || (this._commentsList = [])).push(...comments);
+		comments.forEach((note) => {
+			this.fileHasComments(note.notes);
+		});
 
 		return comments;
 	});
@@ -113,21 +131,32 @@ export class CommentManager {
 		return this._commentsList;
 	}
 
-	async addComment(body: string, position) {
+	async getMrVersion() {
+		const dataSource = await adapterManager.getAdapter(this._scheme).resolveDataSource();
+		const res = await dataSource.getMrVersion(this._repo, this._codeReviewId);
+		return res;
+	}
+
+	async addComment(id, body: string, position) {
 		const dataSource = await adapterManager.getAdapter(this._scheme).resolveDataSource();
 		const res = await dataSource.createComment(this._repo, this._codeReviewId, body, position);
 		return res;
 	}
-
-	async modifyComment(noteId: number, body: string) {
+	async replyComment(noteId, body: string | vscode.MarkdownString) {
 		const dataSource = await adapterManager.getAdapter(this._scheme).resolveDataSource();
-		const res = await dataSource.modifyComment(this._repo, this._codeReviewId, noteId, body);
+		const res = await dataSource.replyComment(this._repo, this._codeReviewId, noteId, body);
 		return res;
 	}
 
-	async deleteComment(noteId: number) {
+	async modifyComment(discussionId: number, noteId: number, body: string) {
 		const dataSource = await adapterManager.getAdapter(this._scheme).resolveDataSource();
-		const res = await dataSource.deleteComment(this._repo, this._codeReviewId, noteId);
+		const res = await dataSource.modifyComment(this._repo, this._codeReviewId,discussionId, noteId, body);
+		return res;
+	}
+
+	async deleteComment(discussionId: number, noteId: number) {
+		const dataSource = await adapterManager.getAdapter(this._scheme).resolveDataSource();
+		const res = await dataSource.deleteComment(this._repo, this._codeReviewId, discussionId, noteId);
 		return res;
 	}
 }
@@ -223,17 +252,25 @@ export class CodeReviewManager {
 		const comments = CommentManager.getInstance(this._scheme, this._repo, codeReviewId);
 		return comments.getList();
 	};
+	public getMrVersion = async (codeReviewId: string) => {
+		const comments = CommentManager.getInstance(this._scheme, this._repo, codeReviewId);
+		return comments.getMrVersion();
+	};
 	public addComment = async (codeReviewId: string, body: string, position) => {
 		const comments = CommentManager.getInstance(this._scheme, this._repo, codeReviewId);
-		comments.addComment(body, position);
+		return comments.addComment(codeReviewId, body, position);
 	};
-	public modifyComment = async (codeReviewId: string, noteId: number, body: string) => {
+	public replyComment = async (codeReviewId: string, noteId: number, body: string | vscode.MarkdownString) => {
 		const comments = CommentManager.getInstance(this._scheme, this._repo, codeReviewId);
-		comments.modifyComment(noteId, body);
+		return comments.replyComment(noteId, body);
+	};
+	public modifyComment = async (codeReviewId: string, discussionId: number, noteId: number, body: string) => {
+		const comments = CommentManager.getInstance(this._scheme, this._repo, codeReviewId);
+		comments.modifyComment(discussionId, noteId, body);
 	};
 
-	public deleteComment = async (codeReviewId: string, noteId: number) => {
+	public deleteComment = async (codeReviewId: string, discussionId: number, noteId: number) => {
 		const comments = CommentManager.getInstance(this._scheme, this._repo, codeReviewId);
-		comments.deleteComment(noteId);
+		comments.deleteComment(discussionId, noteId);
 	};
 }

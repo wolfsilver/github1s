@@ -6,6 +6,8 @@ import { adapterManager } from '..';
 
 let commentId = 1;
 
+let commentMap = new Map();
+
 class NoteComment implements vscode.Comment {
 	label: string | undefined;
 	savedBody: string | vscode.MarkdownString; // for the Cancel button
@@ -15,7 +17,8 @@ class NoteComment implements vscode.Comment {
 		public author: vscode.CommentAuthorInformation,
 		public parent?: vscode.CommentThread,
 		public contextValue?: string,
-		public id?: number
+		public discussionId?: number,
+		public noteId?: number
 	) {
 		this.savedBody = this.body;
 	}
@@ -29,10 +32,11 @@ export function activate(context: vscode.ExtensionContext) {
 	// A `CommentingRangeProvider` controls where gutter decorations that allow adding comments are shown
 	commentController.commentingRangeProvider = {
 		provideCommentingRanges: (document: vscode.TextDocument, token: vscode.CancellationToken) => {
-			debugger;
+			// debugger;
 			if (!document.uri.query) {
 				return;
 			}
+			console.log('### activate', document);
 			const lineCount = document.lineCount;
 			renderComments(document);
 			return [new vscode.Range(0, 0, lineCount - 1, 0)];
@@ -41,7 +45,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('github1s.commands.createNote', (reply: vscode.CommentReply) => {
-			replyNote(reply);
+			createNote(reply);
 		})
 	);
 
@@ -51,15 +55,15 @@ export function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand('github1s.commands.startDraft', (reply: vscode.CommentReply) => {
-			const thread = reply.thread;
-			thread.contextValue = 'draft';
-			const newComment = new NoteComment(reply.text, vscode.CommentMode.Preview, { name: 'vscode' }, thread);
-			newComment.label = 'pending';
-			thread.comments = [...thread.comments, newComment];
-		})
-	);
+	// context.subscriptions.push(
+	// 	vscode.commands.registerCommand('github1s.commands.startDraft', (reply: vscode.CommentReply) => {
+	// 		const thread = reply.thread;
+	// 		thread.contextValue = 'draft';
+	// 		const newComment = new NoteComment(reply.text, vscode.CommentMode.Preview, { name: 'vscode' }, thread);
+	// 		newComment.label = 'pending';
+	// 		thread.comments = [...thread.comments, newComment];
+	// 	})
+	// );
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('github1s.commands.finishDraft', (reply: vscode.CommentReply) => {
@@ -87,8 +91,9 @@ export function activate(context: vscode.ExtensionContext) {
 			if (!thread) {
 				return;
 			}
+			deleteNote(comment)
 
-			thread.comments = thread.comments.filter((cmt) => (cmt as NoteComment).id !== comment.id);
+			thread.comments = thread.comments.filter((cmt) => (cmt as NoteComment).noteId !== comment.noteId);
 
 			if (thread.comments.length === 0) {
 				thread.dispose();
@@ -109,7 +114,7 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			comment.parent.comments = comment.parent.comments.map((cmt) => {
-				if ((cmt as NoteComment).id === comment.id) {
+				if ((cmt as NoteComment).noteId === comment.noteId) {
 					cmt.body = (cmt as NoteComment).savedBody;
 					cmt.mode = vscode.CommentMode.Preview;
 				}
@@ -126,9 +131,10 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			comment.parent.comments = comment.parent.comments.map((cmt) => {
-				if ((cmt as NoteComment).id === comment.id) {
+				if ((cmt as NoteComment).noteId === comment.noteId) {
 					(cmt as NoteComment).savedBody = cmt.body;
 					cmt.mode = vscode.CommentMode.Preview;
+					modifyNote(comment)
 				}
 
 				return cmt;
@@ -143,7 +149,8 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			comment.parent.comments = comment.parent.comments.map((cmt) => {
-				if ((cmt as NoteComment).id === comment.id) {
+				debugger
+				if ((cmt as NoteComment).noteId === comment.noteId) {
 					cmt.mode = vscode.CommentMode.Editing;
 				}
 
@@ -160,30 +167,99 @@ export function activate(context: vscode.ExtensionContext) {
 
 	async function replyNote(reply: vscode.CommentReply) {
 		const thread = reply.thread;
-		const newComment = new NoteComment(
-			reply.text,
+
+		const scheme = adapterManager.getCurrentScheme();
+		const { repo } = await router.getState();
+
+		const query = queryString.parse(thread?.uri.query!);
+						const dataSource = await adapterManager.getAdapter(scheme).resolveDataSource()
+		const currentUser = await dataSource.getUserInfo()
+	 const note = await	Repository.getInstance(scheme, repo).replyComment(query?.id, thread.comments[0].discussionId, reply.text );
+	const newComment = new NoteComment(
+			new vscode.MarkdownString(reply.text),
 			vscode.CommentMode.Preview,
-			{ name: 'vscode' },
+			{
+				name: currentUser.name || currentUser.username,
+				iconPath: vscode.Uri.parse(currentUser.avatar_url),
+			},
 			thread,
-			thread.comments.length ? 'canDelete' : undefined
+			thread.comments.length ? 'canDelete' : undefined,
+			thread.comments[0].discussionId,
+			note.id
 		);
+		debugger
 		if (thread.contextValue === 'draft') {
 			newComment.label = 'pending';
 		}
+		thread.comments = [...thread.comments, newComment];
+	}
+
+	async function modifyNote(comment: NoteComment) {
 		const scheme = adapterManager.getCurrentScheme();
 		const { repo } = await router.getState();
-		debugger;
 
-		const query = queryString.parse(newComment.parent?.uri.query!);
-		Repository.getInstance(scheme, repo).addComment(query?.id as string, newComment.body as string, {
-			'position[base_sha]': '',
-			'position[start_sha]': '',
-			'position[head_sha]': '',
-			'position[position_type]': 'text',
-			'position[new_path]': newComment.parent?.uri.path,
-			'position[old_path]': newComment.parent?.uri.path,
-			'position[new_line]': thread.range.start.line,
-		});
+		const query = queryString.parse(comment.parent?.uri.query!);
+
+		Repository.getInstance(scheme, repo).modifyComment(query?.id, comment.discussionId, comment.noteId, comment.body.value);
+	}
+
+	async function deleteNote(comment: NoteComment) {
+		const scheme = adapterManager.getCurrentScheme();
+		const { repo } = await router.getState();
+
+		const query = queryString.parse(comment.parent?.uri.query!);
+
+		Repository.getInstance(scheme, repo).deleteComment(query?.id, comment.discussionId, comment.noteId);
+	}
+
+	async function createNote(reply: vscode.CommentReply) {
+		const thread = reply.thread;
+
+
+		const scheme = adapterManager.getCurrentScheme();
+		const { repo } = await router.getState();
+
+
+		const query = queryString.parse(thread?.uri.query!);
+		const baseUri = vscode.Uri.parse(query.base);
+		const headUri = vscode.Uri.parse(query.head);
+		const mrVersion = await Repository.getInstance(scheme, repo).getMrVersion(query?.id as string);
+
+	 const newC = await	Repository.getInstance(scheme, repo).addComment(query?.id as string, reply.text, ({
+			// 'position[base_sha]': '',
+			// 'position[start_sha]': '',
+			// 'position[head_sha]': '',
+			// 'position[position_type]': 'text',
+			// 'position[new_path]': newComment.parent?.uri.path,
+			// 'position[old_path]': newComment.parent?.uri.path,
+			// 'position[new_line]': thread.range.start.line,
+			base_sha: mrVersion.base_commit_sha, // baseUri.authority.split('+').pop(),
+			start_sha: mrVersion.start_commit_sha, // headUri.authority.split('+').pop(),
+			head_sha: mrVersion.head_commit_sha, // headUri.authority.split('+').pop(),
+			position_type: 'text', // text or image
+			new_path: headUri.path.replace(/^\//, ''),
+			old_path: headUri.path.replace(/^\//, ''),
+			new_line: reply.thread.range.start.line + 1,
+			// old_line: '',
+		}));
+				const dataSource = await adapterManager.getAdapter(scheme).resolveDataSource()
+		const currentUser = await dataSource.getUserInfo()
+
+		const newComment = new NoteComment(
+			reply.text,
+			vscode.CommentMode.Preview,
+			{
+				name: currentUser.name || currentUser.username,
+				iconPath: vscode.Uri.parse(currentUser.avatar_url),
+			},
+			thread,
+			thread.comments.length ? 'canDelete' : undefined,
+			newC.id,
+		);
+
+		if (thread.contextValue === 'draft') {
+			newComment.label = 'pending';
+		}
 
 		thread.comments = [...thread.comments, newComment];
 	}
@@ -191,20 +267,33 @@ export function activate(context: vscode.ExtensionContext) {
 	async function renderComments(document: vscode.TextDocument) {
 		const scheme = adapterManager.getCurrentScheme();
 		const { repo } = await router.getState();
+		const dataSource = await adapterManager.getAdapter(scheme).resolveDataSource()
+		const currentUser = await dataSource.getUserInfo()
 
 		const query = queryString.parse(document?.uri.query!);
 
 		const list = await Repository.getInstance(scheme, repo).getComment(query?.id as string);
 		console.log('###', list);
-		debugger;
-		list.forEach(({ notes }) => {
-			const comments = notes.filter((note) => note.type === 'DiffNote');
+		const key = `${query?.id}-${document?.uri.path}`; // TODO 加上 commit hash
+		if (commentMap.has(key)) {
+			return;
+		}
+		commentMap.set(key, true);
+		// debugger;
+		list.forEach(({ id, notes }) => {
+			let comments = notes.filter((note) => note.type === 'DiffNote');
+			// comments = []
+
 			if (comments.length) {
+				if (`/${comments[0].position.new_path}` !== document?.uri.path) {
+					return;
+				}
+				console.log('### document.uri', document.uri);
 				const thread = commentController.createCommentThread(
 					document.uri,
 					new vscode.Range(
-						new vscode.Position(comments[0].position.line_range.start.new_line, 0),
-						new vscode.Position(comments[0].position.line_range.end.new_line, 0)
+						new vscode.Position(comments[0].position.line_range?.start?.new_line ?? comments[0].position.new_line-1, 0),
+						new vscode.Position(comments[0].position.line_range?.end?.new_line ?? comments[0].position.new_line-1, 0)
 					),
 					[]
 				);
@@ -213,10 +302,15 @@ export function activate(context: vscode.ExtensionContext) {
 					return new NoteComment(
 						new vscode.MarkdownString(comment.body),
 						vscode.CommentMode.Preview,
-						{ name: comment.author.name, iconPath: comment.author.avatar_url },
+						{
+							name: comment.author.name,
+							iconPath: vscode.Uri.parse(comment.author.avatar_url),
+						},
 						thread,
-						comments.length ? 'canDelete' : undefined,
-						comment.noteable_id
+						// TODO 当前用户
+						comment.author.id === currentUser.id ? 'canDelete' : undefined,
+						id,
+						comment.id
 					);
 				});
 			}

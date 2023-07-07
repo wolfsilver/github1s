@@ -133,9 +133,15 @@ export class Repository {
 	getComment(...args: Parameters<CodeReviewManager['getComment']>) {
 		return this._codeReviewManager.getComment(...args);
 	}
+	getMrVersion(...args: Parameters<CodeReviewManager['getMrVersion']>) {
+		return this._codeReviewManager.getMrVersion(...args);
+	}
 
 	addComment(...args: Parameters<CodeReviewManager['addComment']>) {
 		return this._codeReviewManager.addComment(...args);
+	}
+	replyComment(...args: Parameters<CodeReviewManager['replyComment']>) {
+		return this._codeReviewManager.replyComment(...args);
 	}
 
 	modifyComment(...args: Parameters<CodeReviewManager['modifyComment']>) {
