@@ -48,8 +48,11 @@
     }
   ],
   "github": {
-    "deploymentEnabled": {
-      "feature/gitlab-bakup": false
-    }
+    "silent": true,
+    "defaultBranch": "feature/gitlab-code",
+    "deploymentEnabled": false,
+    "deploymentBranches": [
+      "feature/gitlab-code"
+    ]
   }
 }
