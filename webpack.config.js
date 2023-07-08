@@ -66,12 +66,12 @@ module.exports = (env, argv) => {
 						...skipMinified,
 					},
 					!devVscode && {
-						from: 'node_modules/@github1s/vscode-web/dist/vscode',
+						from: 'node_modules/github1s-vscode-web/dist/vscode',
 						to: `static-${STATIC_HASH}/vscode`,
 						...skipMinified,
 					},
 					!devVscode && {
-						from: 'node_modules/@github1s/vscode-web/dist/extensions',
+						from: 'node_modules/github1s-vscode-web/dist/extensions',
 						to: `static-${STATIC_HASH}/extensions`,
 						...skipMinified,
 					},

@@ -60,7 +60,7 @@ const getExtensionData = (absolutePath) => {
 };
 
 const scanVSCodeExtensions = () => {
-	const extensionsPath = path.join(APP_ROOT, 'node_modules/@github1s/vscode-web/dist/extensions');
+	const extensionsPath = path.join(APP_ROOT, 'node_modules/github1s-vscode-web/dist/extensions');
 	const extensionFolders = fs.existsSync(extensionsPath) ? fs.readdirSync(extensionsPath) : [];
 
 	return extensionFolders.map((item) => getExtensionData(path.join(extensionsPath, item))).filter(Boolean);
