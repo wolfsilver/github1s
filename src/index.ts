@@ -46,7 +46,7 @@ const resolvePlatformState = (): [Platform, string] => {
 	const [platform, repository] = resolvePlatformState();
 	const staticAssetsPath = '/static-' + STATIC_HASH;
 	const staticAssetsPrefix = window.location.origin + staticAssetsPath;
-	const nodeModulesPrefix = staticAssetsPrefix + '/node_modules';
+	const nodeModulesPrefix = staticAssetsPrefix + '/modules';
 
 	Object.keys(window.webPackagePaths || {}).forEach((key) => {
 		self.webPackagePaths[key] = `${nodeModulesPrefix}/${key}/${self.webPackagePaths[key]}`;
