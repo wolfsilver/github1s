@@ -50,10 +50,8 @@
   "github": {
     "silent": true,
     "autoAlias": false,
-    "defaultBranch": "feature/gitlab-code",
-    "deploymentEnabled": false,
-    "deploymentBranches": [
-      "feature/gitlab-code"
-    ]
+    "deploymentEnabled": {
+      "feature/gitlab-bakup": false
+    }
   }
 }
