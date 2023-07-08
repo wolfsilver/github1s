@@ -51,6 +51,7 @@
     "silent": true,
     "autoAlias": false,
     "defaultBranch": "feature/gitlab-code",
+    "deploymentEnabled": false,
     "deploymentBranches": [
       "feature/gitlab-code"
     ]
