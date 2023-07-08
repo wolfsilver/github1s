@@ -46,5 +46,13 @@
         }
       ]
     }
-  ]
+  ],
+  "github": {
+    "silent": true,
+    "autoAlias": false,
+    "defaultBranch": "feature/gitlab-code",
+    "deploymentBranches": [
+      "feature/gitlab-code"
+    ]
+  }
 }
