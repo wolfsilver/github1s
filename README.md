@@ -62,8 +62,8 @@ git clone git@github.com:conwnet/github1s.git
 cd github1s
 yarn
 yarn watch
-# The cli will automatically open http://localhost:5000 once the build is completed.
-# You can visit http://localhost:5000/conwnet/github1s if it doesn't.
+# The cli will automatically open http://localhost:8080 once the build is completed.
+# You can visit http://localhost:8080/conwnet/github1s if it doesn't.
 ```
 
 #### Local development with full VS Code build
@@ -78,14 +78,14 @@ cd github1s
 yarn build:vscode
 ```
 
-After the inital successful build, you could use the watch mode:
+After the initial successful build, you could use the watch mode:
 
 ```bash
 cd github1s
 yarn
 yarn watch-with-vscode
-# The cli will automatically open http://localhost:5000 once the build is completed.
-# You can visit http://localhost:5000/conwnet/github1s if it doesn't.
+# The cli will automatically open http://localhost:8080 once the build is completed.
+# You can visit http://localhost:8080/conwnet/github1s if it doesn't.
 ```
 
 ### ... or ... VS Code + Docker Development
@@ -104,8 +104,8 @@ You can use the VS Code plugin [Remote-Containers](https://marketplace.visualstu
 ```bash
 yarn
 yarn watch
-# The cli will automatically open http://localhost:5000 once the build is completed.
-# You can visit http://localhost:5000/conwnet/github1s if it doesn't.
+# The cli will automatically open http://localhost:8080 once the build is completed.
+# You can visit http://localhost:8080/conwnet/github1s if it doesn't.
 ```
 
 ### Format all codes
@@ -162,7 +162,7 @@ We are partnered with [OSS Insight](https://ossinsight.io/?utm_source=github1s&u
 
 ## Stargazers over time
 
-[![Stargazers over time](https://starchart.cc/conwnet/github1s.svg)](https://starchart.cc/conwnet/github1s)
+[![Stargazers over time](https://api.star-history.com/svg?repos=conwnet/github1s&type=Date)](https://star-history.com/#conwnet/github1s&Date)
 
 <details>
 <summary>Third-party Related Projects</summary>
@@ -177,6 +177,7 @@ We are partnered with [OSS Insight](https://ossinsight.io/?utm_source=github1s&u
 - [shortcut to github1s](https://chrome.google.com/webstore/detail/shortcut-to-github1s/gfcdbodapcbfckbfpmgeldfkkgjknceo) ([katsuhisa91/github1s-shortcut](https://github.com/katsuhisa91/github1s-shortcut))
 - [Github1s Shortut - Open source](https://github.com/Fauzdar1/Github1s)
 - [⚡️ 1s to GitHub1s!](https://github.com/holazz/webext-github1s)
+- [github1s Google Chrome Extensions](https://github.com/Lonely-Mr-zhang/github_1s_vscode)
 
 ### Firefox Extensions
 
