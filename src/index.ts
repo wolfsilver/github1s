@@ -7,6 +7,7 @@ import { ConnectToGitHub } from './github-auth';
 import { renderNotification } from './notification';
 import { createProductConfiguration } from './product';
 import { createVSCodeWebConfig, Platform } from './config';
+import { ConnectToGitLab } from './gitlab-auth';
 
 declare global {
 	interface Window {
@@ -20,7 +21,7 @@ const resolvePlatformState = (): [Platform, string] => {
 	const hostname = window.location.hostname;
 	const pathParts = window.location.pathname.split('/').filter(Boolean);
 
-	if (hostname.match(/^(.*\.)?gitlab1s\.com$/i)) {
+	if (hostname.match(/^(.*\.)?gitlab$/i)) {
 		const dashIndex = pathParts.indexOf('-');
 		const repository = (dashIndex < 0 ? pathParts : pathParts.slice(0, dashIndex)).join('/');
 		return [Platform.GitLab, repository];
@@ -63,6 +64,7 @@ const resolvePlatformState = (): [Platform, string] => {
 		{ id: 'github1s.commands.vscode.replaceBrowserUrl', handler: (url: string) => history.replaceState(null, '', url) },
 		{ id: 'github1s.commands.vscode.pushBrowserUrl', handler: (url: string) => history.pushState(null, '', url) },
 		{ id: 'github1s.commands.vscode.connectToGitHub', handler: ConnectToGitHub },
+		{ id: 'github1s.commands.vscode.connectToGitLab', handler: ConnectToGitLab },
 	];
 
 	(window as any).vscodeWeb = {

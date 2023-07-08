@@ -43,7 +43,7 @@ const VSCODE_NODE_MODULES = [
 	to({ context, absoluteFilename }) {
 		const relativePath = path.relative(context, absoluteFilename);
 		const relativeDir = path.dirname(relativePath.replace('vscode-web/node_modules/', ''));
-		return `static-${STATIC_HASH}/node_modules/${relativeDir}/[name][ext]`;
+		return `static-${STATIC_HASH}/modules/${relativeDir}/[name][ext]`;
 	},
 	...skipMinified,
 }));
