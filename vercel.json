@@ -48,8 +48,6 @@
     }
   ],
   "github": {
-    "silent": true,
-    "autoAlias": false,
     "deploymentEnabled": {
       "feature/gitlab-bakup": false
     }
