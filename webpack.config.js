@@ -91,6 +91,7 @@ module.exports = (env, argv) => {
 			}),
 			new webpack.DefinePlugin({
 				STATIC_HASH: JSON.stringify(STATIC_HASH),
+				GITLAB_DOMAIN: JSON.stringify(process.env.GITLAB_DOMAIN || 'https://gitlab.com'),
 			}),
 			generate({
 				file: `static-${STATIC_HASH}/config/extensions.js`,

@@ -69,7 +69,7 @@ export const createVSCodeWebConfig = (platform: Platform, repository: string): a
 			logo: {
 				title: 'Open on GitLab',
 				icon: gitlabLogoUrl,
-				onClick: () => (repository ? openOfficialPage('https://gitlab.com') : openGitHub1sPage()),
+				onClick: () => (repository ? openOfficialPage(GITLAB_DOMAIN) : openGitHub1sPage()),
 			},
 		};
 	}
