@@ -4,3 +4,4 @@ declare module '*.svg' {
 }
 
 declare const STATIC_HASH: string;
+declare const GITLAB_DOMAIN: string;
