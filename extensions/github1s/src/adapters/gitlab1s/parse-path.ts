@@ -160,7 +160,6 @@ export const parseGitLabPath = async (path: string): Promise<RouterState> => {
 	}
 
 	// fallback to default
-	const fallbackRepository = 'gitlab-org/gitlab-docs';
 	return {
 		repo: DEFAULT_REPO,
 		ref: await getDefaultBranch(DEFAULT_REPO),

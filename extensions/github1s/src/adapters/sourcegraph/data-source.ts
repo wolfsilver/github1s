@@ -63,7 +63,7 @@ export class SourcegraphDataSource extends DataSource {
 		}
 		if (this.platform === 'gitlab') {
 			// return `gitlab.com/${repo}`;
-			return `${GITLAB_DOMAIN.replace('https://', '')}/${repo}`;
+			return `${GITLAB_ORIGIN.replace('https://', '')}/${repo}`;
 		}
 		if (this.platform === 'bitbucket') {
 			return `bitbucket.org/${repo}`;

@@ -8,7 +8,6 @@ import { ConnectToGitLab } from './gitlab-auth';
 import { renderNotification } from './notification';
 import { createProductConfiguration } from './product';
 import { createVSCodeWebConfig, Platform } from './config';
-import { ConnectToGitLab } from './gitlab-auth';
 
 declare global {
 	interface Window {

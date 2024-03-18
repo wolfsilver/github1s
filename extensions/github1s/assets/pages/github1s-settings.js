@@ -35,11 +35,6 @@ export const InputTokenBlock = ({ createLink, isEditing, onCancel, ...props }) =
 		setInputToken(event.target.value);
 	}, []);
 
-	useEffect(() => {
-		if (isGitLab) {
-			setCreateTokenLink(GITLAB_DOMAIN + GITLAB_CREATE_TOKEN_URL + '?scopes=api&name=GitLab1s');
-		}
-	}, [isGitLab]);
 
 	const handleSubmit = useCallback(() => {
 		if (inputToken) {
