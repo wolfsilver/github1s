@@ -19,21 +19,27 @@ interface VSCodeChangedFile {
 }
 
 // get the change files of a codeReview
-export const getCodeReviewChangedFiles = async (codeReview: adapterTypes.CodeReview) => {
+export const getCodeReviewChangedFiles = async (
+	codeReview: adapterTypes.CodeReview & { sourceSha: string; targetSha: string }
+) => {
 	const scheme = adapterManager.getCurrentScheme();
 	const { repo } = await router.getState();
-	const repository = Repository.getInstance(scheme, repo);
-	const changedFiles = await repository.getCodeReviewChangedFiles(codeReview.id);
+
 	// gitlab mergeList 无法获取base sha
-	const [{ base: baseSha = '' } = {}] = changedFiles;
+	// const [{ base: baseSha = '' } = {}] = changedFiles;
 	const baseRootUri = vscode.Uri.parse('').with({
 		scheme: scheme,
-		authority: `${repo}+${codeReview.base.commitSha || baseSha}`,
+		authority: `${repo}+${codeReview.targetSha}`,
+		// authority: `${repo}+${codeReview.base.commitSha || baseSha}`,
 		path: '/',
 	});
 	const headRootUri = baseRootUri.with({
-		authority: `${repo}+${codeReview.head.commitSha}`,
+		authority: `${repo}+${codeReview.sourceSha}`,
+		// authority: `${repo}+${codeReview.head.commitSha}`,
 	});
+
+	const repository = Repository.getInstance(scheme, repo);
+	const changedFiles = await repository.getCodeReviewChangedFiles(codeReview.id);
 
 	return changedFiles.map((changedFile) => {
 		// the `previous_filename` field only exists in `RENAMED` file,
