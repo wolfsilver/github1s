@@ -29,19 +29,9 @@ import {
 } from '../types';
 import { toUint8Array } from 'js-base64';
 import { matchSorter } from 'match-sorter';
-// import { FILE_BLAME_QUERY } from './graphql';
 import { GitLabFetcher } from './fetcher';
 import { SourcegraphDataSource } from '../sourcegraph/data-source';
-
-const parseRepoFullName = (repoFullName: string) => {
-	const [owner, repo] = repoFullName.split('/');
-	return { owner, repo };
-};
-
-const encodeFilePath = (filePath: string): string => {
-	const pathParts = filePath.split('/').filter(Boolean);
-	return pathParts.map((segment) => encodeURIComponent(segment)).join('/');
-};
+import { decorate, memorize } from '@/helpers/func';
 
 const FileTypeMap = {
 	blob: FileType.File,
@@ -49,17 +39,27 @@ const FileTypeMap = {
 	commit: FileType.Submodule,
 };
 
-const getPullState = (pull: { state: string; merged_at: string | null }): CodeReviewState => {
-	// current pull request is open
-	if (pull.state === 'opened') {
+const getMergeRequestState = (mergeRequest: { state: string; merged_at: string | null }): CodeReviewState => {
+	// current merge request is open
+	if (mergeRequest.state === 'opened') {
 		return CodeReviewState.Open;
 	}
-	// current pull request is merged
-	if (pull.state === 'closed' && pull.merged_at) {
+	// current merge request is merged
+	if (mergeRequest.state === 'closed' && mergeRequest.merged_at) {
 		return CodeReviewState.Merged;
 	}
-	// current pull is closed
+	// current merge is closed
 	return CodeReviewState.Merged;
+};
+
+const resolveComputeAge = (timestamps: number[], ageLimit = 10) => {
+	const maxTimestamp = Math.max(...timestamps);
+	const minTimestamp = Math.min(...timestamps);
+	const step = (maxTimestamp - minTimestamp) / ageLimit;
+	return (timestamp: number) => {
+		const age = Math.floor((timestamp - minTimestamp) / (step || 1));
+		return (((Math.max(age, ageLimit - 1) % ageLimit) + ageLimit) % ageLimit) + 1;
+	};
 };
 
 const sourcegraphDataSource = SourcegraphDataSource.getInstance('gitlab');
@@ -67,13 +67,12 @@ const trySourcegraphApiFirst = (_target: any, propertyKey: string, descriptor: P
 	const originalMethod = descriptor.value;
 
 	descriptor.value = async function <T extends (...args) => Promise<any>>(...args: Parameters<T>) {
-		// return originalMethod.apply(this, args);
-		// const githubFetcher = GitLabFetcher.getInstance();
-		// if (await githubFetcher.useSourcegraphApiFirst(args[0])) {
-		// 	try {
-		// 		return await sourcegraphDataSource[propertyKey](...args);
-		// 	} catch (e) {}
-		// }
+		const gitlabFetcher = GitLabFetcher.getInstance();
+		if (await gitlabFetcher.getPreferSourcegraphApi(args[0])) {
+			try {
+				return await sourcegraphDataSource[propertyKey](...args);
+			} catch (e) {}
+		}
 		return originalMethod.apply(this, args);
 	};
 };
@@ -82,9 +81,7 @@ export class GitLab1sDataSource extends DataSource {
 	private static instance: GitLab1sDataSource | null = null;
 	private branchesPromiseMap: Map<string, Promise<Branch[]>> = new Map();
 	private tagsPromiseMap: Map<string, Promise<Tag[]>> = new Map();
-	private refPathPromiseMap: Map<string, Promise<{ ref: string; path: string }>> = new Map();
 	private matchedRefsMap = new Map<string, string[]>();
-	private avatarPromiseMap = new Map<string, Promise<string>>();
 
 	public static getInstance(): GitLab1sDataSource {
 		if (GitLab1sDataSource.instance) {
@@ -93,43 +90,32 @@ export class GitLab1sDataSource extends DataSource {
 		return (GitLab1sDataSource.instance = new GitLab1sDataSource());
 	}
 
-	async provideRepository(repoFullName: string) {
-		if (!this.branchesPromiseMap.has(repoFullName)) {
-			await this.provideBranches(repoFullName);
-		}
-		return this.branchesPromiseMap.get(repoFullName)?.then((branches) => {
-			const defaultBranch = branches.find((br) => br.isDefault);
-			if (defaultBranch) {
-				return { name: defaultBranch.name, defaultBranch: defaultBranch?.name };
-			}
-		});
+	async provideRepository(repo: string) {
+		const fetcher = GitLabFetcher.getInstance();
+		const { data } = await fetcher.request('GET /projects/{repo}', { repo });
+		return { private: data.visibility === 'private', defaultBranch: data.default_branch };
 	}
 
 	@trySourcegraphApiFirst
-	async provideDirectory(repoFullName: string, ref: string, path: string, recursive = false): Promise<Directory> {
+	async provideDirectory(repo: string, ref: string, path: string, recursive = false): Promise<Directory> {
 		const fetcher = GitLabFetcher.getInstance();
-		const encodedPath = encodeFilePath(path);
 		let page = 1;
 		let files = [];
 		const parseTreeItem = (treeItem): DirectoryEntry => ({
-			path: treeItem.path,
+			path: treeItem.path.slice(path.length),
 			type: FileTypeMap[treeItem.type] || FileType.File,
 			commitSha: FileTypeMap[treeItem.id] === FileType.Submodule ? treeItem.sha || 'HEAD' : undefined,
 			size: treeItem.size,
 		});
 		while (page > 0) {
-			const requestParams = {
-				ref,
-				page,
-				path: encodedPath,
-				...parseRepoFullName(repoFullName),
-			};
+			const requestParams = { ref, page, path, repo, recursive };
 			const { data, headers } = await fetcher.request(
-				'GET /projects/{owner}%2F{repo}/repository/tree?recursive=true&per_page=100&page={page}&ref={ref}',
+				'GET /projects/{repo}/repository/tree?recursive={recursive}&per_page=100&page={page}&ref={ref}&path={path}',
 				requestParams
 			);
 			files = files.concat(data);
-			page = Number(headers!.get('x-next-page'));
+			const nextPage = Number(headers!.get('x-next-page'));
+			page = nextPage > page ? nextPage : 0;
 		}
 
 		return {
@@ -139,37 +125,18 @@ export class GitLab1sDataSource extends DataSource {
 	}
 
 	@trySourcegraphApiFirst
-	async provideFile(repoFullName: string, ref: string, path: string): Promise<File> {
+	async provideFile(repo: string, ref: string, path: string): Promise<File> {
 		const fetcher = GitLabFetcher.getInstance();
-		const { owner, repo } = parseRepoFullName(repoFullName);
-		const requestParams = { owner, repo, ref, path: encodeURIComponent(path) };
-		const { data } = await fetcher.request(
-			'GET /projects/{owner}%2F{repo}/repository/files/{path}?ref={ref}',
-			requestParams
-		);
+		const requestParams = { ref, path, repo };
+		const { data } = await fetcher.request('GET /projects/{repo}/repository/files/{path}?ref={ref}', requestParams);
 		return { content: toUint8Array((data as any).content) };
 	}
 
-	@trySourcegraphApiFirst
-	async getBranches(repoFullName: string, ref: 'heads' | 'tags'): Promise<Branch[] | Tag[]> {
+	@decorate(memorize)
+	async getBranches(repo: string, ref: 'heads' | 'tags'): Promise<Branch[] | Tag[]> {
 		const fetcher = GitLabFetcher.getInstance();
-		const { owner, repo } = parseRepoFullName(repoFullName);
-		const requestParams = { owner, repo, ref };
-		const { data } = await fetcher.request('GET /projects/{owner}%2F{repo}/repository/branches', requestParams);
-		return data.map((item) => ({
-			name: item.name,
-			commitSha: item.commit.id,
-			description: `${ref === 'heads' ? 'Branch' : 'Tag'} at ${item.commit.short_id}`,
-			isDefault: item.default,
-		}));
-	}
-
-	@trySourcegraphApiFirst
-	async getTags(repoFullName: string, ref: 'heads' | 'tags'): Promise<Branch[] | Tag[]> {
-		const fetcher = GitLabFetcher.getInstance();
-		const { owner, repo } = parseRepoFullName(repoFullName);
-		const requestParams = { owner, repo, ref };
-		const { data } = await fetcher.request('GET /projects/{owner}%2F{repo}/repository/tags', requestParams);
+		const requestParams = { repo, ref };
+		const { data } = await fetcher.request('GET /projects/{repo}/repository/branches', requestParams);
 		return data.map((item) => ({
 			name: item.name,
 			commitSha: item.commit.id,
@@ -177,66 +144,56 @@ export class GitLab1sDataSource extends DataSource {
 		}));
 	}
 
-	// @trySourcegraphApiFirst
-	// async extractRefPath(repoFullName: string, refAndPath: string): Promise<{ ref: string; path: string }> {
-	// 	if (!this.matchedRefsMap.has(repoFullName)) {
-	// 		this.matchedRefsMap.set(repoFullName, []);
-	// 	}
-	// 	const matchPathRef = (ref) => refAndPath.startsWith(`${ref}/`) || refAndPath === ref;
-	// 	const matchedRef = this.matchedRefsMap.get(repoFullName)?.find(matchPathRef);
-	// 	if (matchedRef) {
-	// 		return { ref: matchedRef, path: refAndPath.slice(matchedRef.length + 1) };
-	// 	}
-	// 	const mapKey = `${repoFullName} ${refAndPath}`;
-	// 	if (!this.refPathPromiseMap.has(mapKey)) {
-	// 		const refPathPromise = new Promise<{ ref: string; path: string }>(async (resolve, reject) => {
-	// 			if (!refAndPath || refAndPath.match(/^HEAD(\/.*)?$/i)) {
-	// 				return resolve({ ref: 'HEAD', path: refAndPath.slice(5) });
-	// 			}
+	@decorate(memorize)
+	async getTags(repo: string, ref: 'heads' | 'tags'): Promise<Branch[] | Tag[]> {
+		const fetcher = GitLabFetcher.getInstance();
+		const requestParams = { repo, ref };
+		const { data } = await fetcher.request('GET /projects/{repo}/repository/tags', requestParams);
+		return data.map((item) => ({
+			name: item.name,
+			commitSha: item.commit.id,
+			description: `${ref === 'heads' ? 'Branch' : 'Tag'} at ${item.commit.short_id}`,
+		}));
+	}
 
-	// 			const fetcher = GitHubFetcher.getInstance();
-	// 			const { owner, repo } = parseRepoFullName(repoFullName);
-	// 			const requestParams = { owner, repo, refAndPath };
-	// 			const requestUrl = `GET /projects/{owner}%2F{repo}/git/extract-ref/{refAndPath}`;
-	// 			const response = await fetcher.request(requestUrl, requestParams).catch(reject);
-	// 			response?.data?.ref && this.matchedRefsMap.get(repoFullName)?.push(response.data.ref);
-	// 			return resolve(response?.data || { ref: 'HEAD', path: '' });
-	// 		});
-	// 		this.refPathPromiseMap.set(mapKey, refPathPromise);
-	// 	}
-	// 	return this.refPathPromiseMap.get(mapKey)!;
-	// }
+	@decorate(memorize)
+	async getDefaultBranch(repo: string) {
+		return (await this.provideRepository(repo))?.defaultBranch || 'HEAD';
+	}
 
 	@trySourcegraphApiFirst
-	async extractRefPath(repoFullName: string, refAndPath: string): Promise<{ ref: string; path: string }> {
-		if (!refAndPath || refAndPath.match(/^HEAD(\/.*)?$/i)) {
+	async extractRefPath(repo: string, refAndPath: string): Promise<{ ref: string; path: string }> {
+		if (!refAndPath) {
+			return { ref: await this.getDefaultBranch(repo), path: '' };
+		}
+		if (refAndPath.match(/^HEAD(\/.*)?$/i)) {
 			return { ref: 'HEAD', path: refAndPath.slice(5) };
 		}
-		if (!this.matchedRefsMap.has(repoFullName)) {
-			this.matchedRefsMap.set(repoFullName, []);
+		if (!this.matchedRefsMap.has(repo)) {
+			this.matchedRefsMap.set(repo, []);
 		}
 		const matchPathRef = (ref) => refAndPath.startsWith(`${ref}/`) || refAndPath === ref;
-		const pathRef = this.matchedRefsMap.get(repoFullName)?.find(matchPathRef);
+		const pathRef = this.matchedRefsMap.get(repo)?.find(matchPathRef);
 		if (pathRef) {
 			return { ref: pathRef, path: refAndPath.slice(pathRef.length + 1) };
 		}
-		const [branches, tags] = await this.prepareAllRefs(repoFullName);
+		const [branches, tags] = await this.prepareAllRefs(repo);
 		const exactRef = [...branches, ...tags].map((item) => item.name).find(matchPathRef);
 		const ref = exactRef || refAndPath.split('/')[0] || 'HEAD';
-		exactRef && this.matchedRefsMap.get(repoFullName)?.push(ref);
+		exactRef && this.matchedRefsMap.get(repo)?.push(ref);
 		return { ref, path: refAndPath.slice(ref.length + 1) };
 	}
 
-	async prepareAllRefs(repoFullName: string) {
-		return Promise.all([this.provideBranches(repoFullName), this.provideTags(repoFullName)]);
+	async prepareAllRefs(repo: string) {
+		return Promise.all([this.provideBranches(repo), this.provideTags(repo)]);
 	}
 
 	@trySourcegraphApiFirst
-	async provideBranches(repoFullName: string, options?: CommonQueryOptions): Promise<Branch[]> {
-		if (!this.branchesPromiseMap.has(repoFullName)) {
-			this.branchesPromiseMap.set(repoFullName, this.getBranches(repoFullName, 'heads'));
+	async provideBranches(repo: string, options?: CommonQueryOptions): Promise<Branch[]> {
+		if (!this.branchesPromiseMap.has(repo)) {
+			this.branchesPromiseMap.set(repo, this.getBranches(repo, 'heads'));
 		}
-		return this.branchesPromiseMap.get(repoFullName)!.then((branches) => {
+		return this.branchesPromiseMap.get(repo)!.then((branches) => {
 			const matchOptions = { keys: ['name'] };
 			const matchedBranches = options?.query ? matchSorter(branches, options.query, matchOptions) : branches;
 			if (options?.pageSize) {
@@ -249,8 +206,8 @@ export class GitLab1sDataSource extends DataSource {
 	}
 
 	@trySourcegraphApiFirst
-	async provideBranch(repoFullName: string, branchName: string): Promise<Branch | null> {
-		const branches = await this.provideBranches(repoFullName);
+	async provideBranch(repo: string, branchName: string): Promise<Branch | null> {
+		const branches = await this.provideBranches(repo);
 		return branches.find((item) => item.name === branchName) || null;
 	}
 
@@ -287,12 +244,8 @@ export class GitLab1sDataSource extends DataSource {
 	}
 
 	@trySourcegraphApiFirst
-	async provideCommits(
-		repoFullName: string,
-		options?: CommitsQueryOptions
-	): Promise<(Commit & { files?: ChangedFile[] })[]> {
+	async provideCommits(repo: string, options?: CommitsQueryOptions): Promise<(Commit & { files?: ChangedFile[] })[]> {
 		const fetcher = GitLabFetcher.getInstance();
-		const { owner, repo } = parseRepoFullName(repoFullName);
 		const queryParams = {
 			page: options?.page,
 			per_page: options?.pageSize,
@@ -300,9 +253,9 @@ export class GitLab1sDataSource extends DataSource {
 			path: options?.path,
 			author: options?.author,
 		};
-		const requestParams = { owner, repo, ...queryParams };
+		const requestParams = { repo, ...queryParams };
 		const { data } = await fetcher.request(
-			'GET /projects/{owner}%2F{repo}/repository/commits?per_page={per_page}&page={page}&path={path}&ref_name={sha}',
+			'GET /projects/{repo}/repository/commits?per_page={per_page}&page={page}&path={path}&ref_name={sha}',
 			requestParams
 		);
 		return Promise.all(
@@ -314,17 +267,16 @@ export class GitLab1sDataSource extends DataSource {
 				committer: item.committer_name,
 				createTime: item.created_at ? new Date(item.created_at) : undefined,
 				parents: item.parent_ids.map((parent) => parent) || [],
-				avatarUrl: item.author?.avatar_url || (await this.getAvatars(item.author_email)),
+				avatarUrl: item.author?.avatar_url || (await this.provideUserAvatarLink(item.author_name)),
 			}))
 		);
 	}
 
 	@trySourcegraphApiFirst
-	async provideCommit(repoFullName: string, ref: string): Promise<Commit & { files?: ChangedFile[] }> {
+	async provideCommit(repo: string, ref: string): Promise<Commit & { files?: ChangedFile[] }> {
 		const fetcher = GitLabFetcher.getInstance();
-		const { owner, repo } = parseRepoFullName(repoFullName);
-		const requestParams = { owner, repo, ref };
-		const { data } = await fetcher.request('GET /projects/{owner}%2F{repo}/repository/commits/{ref}', requestParams);
+		const requestParams = { repo, ref };
+		const { data } = await fetcher.request('GET /projects/{repo}/repository/commits/{ref}', requestParams);
 		return {
 			sha: data.id,
 			author: data.author_name,
@@ -343,18 +295,10 @@ export class GitLab1sDataSource extends DataSource {
 	}
 
 	@trySourcegraphApiFirst
-	async provideCommitChangedFiles(
-		repoFullName: string,
-		ref: string,
-		_options?: CommonQueryOptions
-	): Promise<ChangedFile[]> {
+	async provideCommitChangedFiles(repo: string, ref: string, _options?: CommonQueryOptions): Promise<ChangedFile[]> {
 		const fetcher = GitLabFetcher.getInstance();
-		const { owner, repo } = parseRepoFullName(repoFullName);
-		const requestParams = { owner, repo, ref };
-		const { data } = await fetcher.request(
-			'GET /projects/{owner}%2F{repo}/repository/commits/{ref}/diff',
-			requestParams
-		);
+		const requestParams = { repo, ref };
+		const { data } = await fetcher.request('GET /projects/{repo}/repository/commits/{ref}/diff', requestParams);
 		return (
 			data?.map((item) => ({
 				path: item.new_path || item.old_path!,
@@ -371,69 +315,61 @@ export class GitLab1sDataSource extends DataSource {
 	}
 
 	async provideCodeReviews(
-		repoFullName: string,
+		repo: string,
 		options?: CodeReviewsQueryOptions
 	): Promise<(CodeReview & { files?: ChangedFile[] })[]> {
 		const fetcher = GitLabFetcher.getInstance();
-		const { owner, repo } = parseRepoFullName(repoFullName);
 		const state = options?.state ? (options.state === CodeReviewState.Open ? 'open' : 'closed') : 'all';
 		// per_page=100&page={page}
 		const queryParams = { state, page: options?.page, per_page: options?.pageSize, creator: options?.creator };
-		const requestParams = { owner, repo, ...queryParams };
+		const requestParams = { repo, ...queryParams };
 		const { data } = await fetcher.request(
-			'GET /projects/{owner}%2F{repo}/merge_requests?per_page={per_page}&page={page}',
+			'GET /projects/{repo}/merge_requests?per_page={per_page}&page={page}',
 			requestParams as any
 		);
 
 		return data.map((item) => ({
 			id: `${item.iid}`,
 			title: item.title,
-			state: getPullState(item),
+			state: getMergeRequestState(item),
 			creator: item.author?.name || item.author?.username,
 			createTime: new Date(item.created_at),
-			// 有些版本没有merged_at字段
-			mergeTime: item.merged_at ? new Date(item.merged_at) : item.updated_at ? new Date(item.updated_at) : null,
+			mergeTime: item.merged_at ? new Date(item.merged_at) : null,
 			closeTime: item.closed_at ? new Date(item.closed_at) : null,
-			head: { label: item.labels[0], commitSha: item.sha },
-			base: { label: item.labels[1], commitSha: '' }, // 获取changes时填充
+			source: item.source_branch,
+			target: item.target_branch,
 			avatarUrl: item.author?.avatar_url,
 		}));
 	}
 
-	async provideCodeReview(repoFullName: string, id: string): Promise<CodeReview & { files?: ChangedFile[] }> {
+	async provideCodeReview(repo: string, id: string) {
 		const fetcher = GitLabFetcher.getInstance();
-		const { owner, repo } = parseRepoFullName(repoFullName);
-		const pullRequestParams = { owner, repo, pull_number: Number(id) };
-		const { data } = await fetcher.request(
-			'GET /projects/{owner}%2F{repo}/merge_requests/{pull_number}',
-			pullRequestParams
-		);
+		const requestParams = { repo, id };
+		const { data } = await fetcher.request('GET /projects/{repo}/merge_requests/{id}', requestParams);
 
 		return {
 			id: `${data.iid}`,
 			title: data.title,
-			state: getPullState(data),
+			state: getMergeRequestState(data),
 			creator: data.author?.name || data.author?.username,
 			createTime: new Date(data.created_at),
 			mergeTime: data.merged_at ? new Date(data.merged_at) : null,
 			closeTime: data.closed_at ? new Date(data.closed_at) : null,
-			head: { label: data.labels[0], commitSha: data.diff_refs.head_sha },
-			base: { label: data.labels[1], commitSha: data.diff_refs.base_sha },
+			source: data.source_branch,
+			target: data.target_branch,
+			sourceSha: data.diff_refs.head_sha,
+			targetSha: data.diff_refs.base_sha,
 			avatarUrl: data.author?.avatar_url,
 		};
 	}
 
-	async provideCodeReviewChangedFiles(
-		repoFullName: string,
-		id: string,
-		options?: CommonQueryOptions
-	): Promise<ChangedFile[]> {
+	// eslint-disable-next-line
+	async provideCodeReviewChangedFiles(repo: string, id: string, options?: CommonQueryOptions): Promise<ChangedFile[]> {
 		const fetcher = GitLabFetcher.getInstance();
-		const { owner, repo } = parseRepoFullName(repoFullName);
 		const pageParams = { per_page: options?.pageSize, page: options?.page };
-		const filesRequestParams = { owner, repo, pull_number: Number(id), ...pageParams };
+		const filesRequestParams = { repo, id, ...pageParams };
 		const { data } = await fetcher.request(
-			'GET /projects/{owner}%2F{repo}/merge_requests/{pull_number}/changes?per_page={per_page}&page={page}',
+			'GET /projects/{repo}/merge_requests/{id}/changes?per_page={per_page}&page={page}',
 			filesRequestParams
 		);
 
@@ -447,73 +383,38 @@ export class GitLab1sDataSource extends DataSource {
 				: item.renamed_file
 				? FileChangeStatus.Renamed
 				: FileChangeStatus.Modified,
-			head: data.diff_refs.head_sha,
-			base: data.diff_refs.base_sha,
 		}));
 	}
 
-	// @trySourcegraphApiFirst
-	// async provideFileBlameRanges(repoFullName: string, ref: string, path: string): Promise<BlameRange[]> {
-	// 	const fetcher = GitHubFetcher.getInstance();
-	// 	const { owner, repo } = parseRepoFullName(repoFullName);
-	// 	const requestParams = { owner, repo, ref, path };
-	// 	const { data } = await fetcher.graphql(FILE_BLAME_QUERY, requestParams);
-	// 	const blameRanges = (data as any)?.repository?.object?.blame?.ranges;
-
-	// 	return (blameRanges || []).map((item) => ({
-	// 		age: item.age as number,
-	// 		startingLine: item.startingLine as number,
-	// 		endingLine: item.endingLine as number,
-	// 		commit: {
-	// 			sha: item.commit?.sha as string,
-	// 			author: item.commit?.author?.name as string,
-	// 			email: item.commit?.author?.email as string,
-	// 			message: item.commit?.message as string,
-	// 			createTime: new Date(item.commit?.authoredDate),
-	// 			avatarUrl: item.commit?.author?.avatarUrl as string,
-	// 		},
-	// 	}));
-	// }
-
 	@trySourcegraphApiFirst
-	async provideFileBlameRanges(repoFullName: string, ref: string, path: string): Promise<BlameRange[]> {
+	async provideFileBlameRanges(repo: string, ref: string, path: string): Promise<BlameRange[]> {
 		const fetcher = GitLabFetcher.getInstance();
-		const { owner, repo } = parseRepoFullName(repoFullName);
-		const requestParams = { owner, repo, ref, path: encodeURIComponent(path) };
+		const requestParams = { repo, ref, path };
 		const { data } = await fetcher.request(
-			'GET /projects/{owner}%2F{repo}/repository/files/{path}/blame?ref={ref}',
+			'GET /projects/{repo}/repository/files/{path}/blame?ref={ref}',
 			requestParams
 		);
 		let startLine = 1;
-		return Promise.all(
-			(data || []).map(async (item) => {
-				let startingLine = startLine;
-				let endingLine = startingLine + item.lines.length;
-				startLine = endingLine + 1;
-				return {
-					// age: item.age as number,
-					startingLine,
-					endingLine,
-					commit: {
-						sha: item.commit?.id as string,
-						author: item.commit?.author_name as string,
-						email: item.commit?.author_email as string,
-						message: item.commit?.message as string,
-						createTime: new Date(item.commit?.authored_date),
-						avatarUrl: item.commit?.avatar_url || (await this.getAvatars(item.commit?.author_email)),
-					},
-				};
-			})
-		);
-	}
-
-	async getAvatars(email: string) {
-		if (this.avatarPromiseMap.has(email)) {
-			return this.avatarPromiseMap.get(email);
-		}
-
-		this.avatarPromiseMap.set(email, this.getAvatar(email));
-		return this.avatarPromiseMap.get(email);
+		const timestamps = data.map(({ commit }) => +new Date(commit.authored_date) || 0);
+		const computeAge = resolveComputeAge(timestamps);
+		return (data || []).map(({ commit, lines }) => {
+			let startingLine = startLine;
+			let endingLine = startingLine + lines.length;
+			startLine = endingLine + 1;
+			return {
+				age: computeAge(+new Date(commit?.authored_date) || 0),
+				startingLine,
+				endingLine,
+				commit: {
+					sha: commit?.id as string,
+					author: commit?.author_name as string,
+					email: commit?.author_email as string,
+					message: commit?.message as string,
+					createTime: new Date(commit?.authored_date),
+					avatarUrl: this.provideUserAvatarLink(encodeURIComponent(commit?.author?.name)),
+				},
+			};
+		});
 	}
 
 	async getAvatar(email): Promise<string> {
@@ -556,6 +457,6 @@ export class GitLab1sDataSource extends DataSource {
 	}
 
 	provideUserAvatarLink(user: string): string {
-		return ``;
+		return `https://www.gravatar.com/avatar/${user}?d=identicon`;
 	}
 }
