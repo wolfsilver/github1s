@@ -47,6 +47,7 @@ export class GitLab1sRouterParser extends adapterTypes.RouterParser {
 	}
 
 	buildExternalLink(path: string): string {
+		// TODO 旧版本gitlab 没有 /-/
 		return joinPath(GITLAB_ORIGIN, path);
 	}
 }
