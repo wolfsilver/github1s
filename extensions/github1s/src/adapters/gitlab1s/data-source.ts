@@ -290,7 +290,7 @@ export class GitLab1sDataSource extends DataSource {
 				previousPath: item.previous_filename,
 				status: item.status as FileChangeStatus,
 			})),
-			avatarUrl: data?.avatar_url,
+			avatarUrl: data?.avatar_url || this.provideUserAvatarLink(data.author_name),
 		};
 	}
 
@@ -338,7 +338,7 @@ export class GitLab1sDataSource extends DataSource {
 			closeTime: item.closed_at ? new Date(item.closed_at) : null,
 			source: item.source_branch,
 			target: item.target_branch,
-			avatarUrl: item.author?.avatar_url,
+			avatarUrl: item.author?.avatar_url || this.provideUserAvatarLink(item.author?.name || item.author?.username),
 		}));
 	}
 
@@ -359,7 +359,7 @@ export class GitLab1sDataSource extends DataSource {
 			target: data.target_branch,
 			sourceSha: data.diff_refs.head_sha,
 			targetSha: data.diff_refs.base_sha,
-			avatarUrl: data.author?.avatar_url,
+			avatarUrl: data.author?.avatar_url || this.provideUserAvatarLink(data.author?.name || data.author?.username),
 		};
 	}
 
