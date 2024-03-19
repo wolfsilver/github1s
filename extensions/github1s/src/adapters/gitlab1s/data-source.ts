@@ -45,7 +45,7 @@ const getMergeRequestState = (mergeRequest: { state: string; merged_at: string |
 		return CodeReviewState.Open;
 	}
 	// current merge request is merged
-	if (mergeRequest.state === 'closed' && mergeRequest.merged_at) {
+	if (mergeRequest.state === 'merged' || mergeRequest.state === 'closed' && mergeRequest.merged_at) {
 		return CodeReviewState.Merged;
 	}
 	// current merge is closed
