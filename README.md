@@ -196,4 +196,3 @@ We are partnered with [OSS Insight](https://ossinsight.io/?utm_source=github1s&u
 
 - [Mr-B0b/TamperMonkeyScripts/vscode.js](https://github.com/Mr-B0b/TamperMonkeyScripts/blob/main/vscode.js)
 </details>
-
