@@ -49,10 +49,10 @@
   ],
   "github": {
     "silent": true,
-    "defaultBranch": "feature/gitlab-code",
+    "defaultBranch": "feature/gitlab-bakup",
     "deploymentEnabled": false,
     "deploymentBranches": [
-      "feature/gitlab-code"
+      "feature/gitlab-bakup"
     ]
   }
 }
