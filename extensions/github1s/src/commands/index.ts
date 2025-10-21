@@ -10,6 +10,7 @@ import { registerCommitCommands } from './commit';
 import { registerEditorCommands } from './editor';
 import { registerBlameCommands } from './blame';
 import { registerGlobalCommands } from './global';
+import { registerWriteCommands } from './write';
 
 export const registerGitHub1sCommands = () => {
 	const context = getExtensionContext();
@@ -20,4 +21,5 @@ export const registerGitHub1sCommands = () => {
 	registerCommitCommands(context);
 	registerBlameCommands(context);
 	registerGlobalCommands(context);
+	registerWriteCommands(context);
 };

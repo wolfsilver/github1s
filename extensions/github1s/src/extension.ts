@@ -12,6 +12,7 @@ import { registerEventListeners } from '@/listeners';
 import { registerVSCodeProviders } from '@/providers';
 import { registerGitHub1sCommands } from '@/commands';
 import { updateSourceControlChanges } from '@/changes';
+import { initializeLocalChangesTracking } from '@/changes/local-changes';
 import { adapterManager, registerAdapters } from '@/adapters';
 import { addRecentRepositories, setExtensionContext } from '@/helpers/context';
 
@@ -43,6 +44,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		updateSourceControlChanges(),
 		decorateStatusBar(),
 	]);
+
+	// Initialize local changes tracking
+	initializeLocalChangesTracking();
 
 	initialVSCodeState();
 }
