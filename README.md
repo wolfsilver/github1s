@@ -24,6 +24,26 @@ Or save the following code snippet as a bookmarklet, you can use it to quickly s
 javascript: window.location.href = window.location.href.replace(/github(1s)?.com/, function(match, p1) { return p1 ? 'github.com' : 'github1s.com' })
 ```
 
+### Write Operations
+
+GitHub1s now supports write operations! You can edit files directly in the browser and commit changes to your GitHub repository.
+
+**Features:**
+
+- Edit, create, and delete files
+- Track local changes in the Source Control panel
+- Commit and push changes to GitHub
+- Create new branches
+
+**To use write operations:**
+
+1. Authenticate with a GitHub token that has `repo` scope
+2. Make your changes to files
+3. Open Source Control (Ctrl+Shift+G) to see your changes
+4. Commit and push using the command palette or Source Control panel
+
+For detailed documentation, see [Write Operations Guide](docs/write-operations.md).
+
 ### Develop in the cloud
 
 To edit files, run Docker containers, create pull requests and more, click the "Develop your project on [Gitpod](https://www.gitpod.io)" button in the status bar. You can also open the Command Palette (default shortcut `Ctrl+Shift+P`) and choose `GitHub1s: Edit files in Gitpod`.

@@ -30,8 +30,8 @@ export class CommitService {
 
 	/**
 	 * Create a commit with the current changes and push to GitHub
-	 * @param message
-	 * @param branch
+	 * @param message - The commit message
+	 * @param branch - Optional branch name to commit to. If not provided, uses current branch
 	 */
 	async commitAndPush(message: string, branch?: string): Promise<void> {
 		const fetcher = GitHubFetcher.getInstance();
@@ -151,7 +151,7 @@ export class CommitService {
 
 	/**
 	 * Create a new branch from the current ref
-	 * @param branchName
+	 * @param branchName - The name of the new branch to create
 	 */
 	async createBranch(branchName: string): Promise<void> {
 		const fetcher = GitHubFetcher.getInstance();
