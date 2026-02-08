@@ -24,13 +24,18 @@ export const getCodeReviewChangedFiles = async (
 ) => {
 	const scheme = adapterManager.getCurrentScheme();
 	const { repo } = await router.getState();
+
+	// gitlab mergeList 无法获取base sha
+	// const [{ base: baseSha = '' } = {}] = changedFiles;
 	const baseRootUri = vscode.Uri.parse('').with({
 		scheme: scheme,
 		authority: `${repo}+${codeReview.targetSha}`,
+		// authority: `${repo}+${codeReview.base.commitSha || baseSha}`,
 		path: '/',
 	});
 	const headRootUri = baseRootUri.with({
 		authority: `${repo}+${codeReview.sourceSha}`,
+		// authority: `${repo}+${codeReview.head.commitSha}`,
 	});
 
 	const repository = Repository.getInstance(scheme, repo);
@@ -143,7 +148,6 @@ export const getChangedFileDiffCommand = (changedFile: VSCodeChangedFile): vscod
 		base: baseFileUri.with({ query: '' }).toString(),
 		head: headFileUri.with({ query: '' }).toString(),
 	});
-
 	return {
 		title: 'Diff',
 		command: 'vscode.diff',

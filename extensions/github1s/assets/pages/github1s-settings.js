@@ -35,6 +35,7 @@ export const InputTokenBlock = ({ createLink, isEditing, onCancel, ...props }) =
 		setInputToken(event.target.value);
 	}, []);
 
+
 	const handleSubmit = useCallback(() => {
 		if (inputToken) {
 			setLoading(true);

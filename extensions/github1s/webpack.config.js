@@ -67,6 +67,9 @@ module.exports = {
 			GITHUB_API_PREFIX: JSON.stringify(process.env.GITHUB_API_PREFIX || 'https://api.github.com'),
 			GITLAB_ORIGIN: JSON.stringify(process.env.GITLAB_DOMAIN || 'https://gitlab.com'),
 			GITLAB_API_PREFIX: JSON.stringify(process.env.GITLAB_API_PREFIX || 'https://gitlab.com/api/v4'),
+			GITLAB_CREATE_TOKEN_URL: JSON.stringify(
+				process.env.GITLAB_CREATE_TOKEN_URL || '/-/profile/personal_access_tokens'
+			),
 		}),
 		new webpack.ProvidePlugin({
 			process: 'process/browser.js',
