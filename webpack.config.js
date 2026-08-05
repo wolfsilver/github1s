@@ -22,7 +22,7 @@ const copyPluginPatterns = [
 	{ from: path.join(vscodeWebPath, 'extensions'), to: `${staticDir}/extensions`, ...skipMinified },
 	{ from: path.join(vscodeWebPath, 'dependencies'), to: `${staticDir}/dependencies`, ...skipMinified },
 	{ from: path.join(vscodeWebPath, 'nls'), to: `${staticDir}/nls`, ...skipMinified },
-	{ from: path.join(import.meta.dirname, `public/code-icon.svg`), to: `${staticDir}/vscode/media/code-icon.svg` },
+	{ from: path.join(import.meta.dirname, `public/code-icon.svg`), to: `${staticDir}/vscode/media/code-icon.svg`, force: true },
 ];
 
 const devVscodeStatic = [
