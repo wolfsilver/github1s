@@ -13,7 +13,7 @@ const resolvePlatformState = (): [Platform, string] => {
 	const hostname = window.location.hostname;
 	const pathParts = window.location.pathname.split('/').filter(Boolean);
 
-	if (hostname.match(/^(.*\.)?gitlab1s\.com$/i)) {
+	if (hostname.match(/^(.*\.)?gitlab/i)) {
 		const dashIndex = pathParts.indexOf('-');
 		const repository = (dashIndex < 0 ? pathParts : pathParts.slice(0, dashIndex)).join('/');
 		return [Platform.GitLab, repository];
