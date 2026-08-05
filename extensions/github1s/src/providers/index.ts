@@ -19,7 +19,55 @@ import { GitHub1sHoverProvider } from './hover';
 export const EMPTY_FILE_SCHEME = 'github1s-empty-file';
 export const emptyFileUri = vscode.Uri.parse('').with({
 	scheme: EMPTY_FILE_SCHEME,
+	path: '/empty',
 });
+
+/**
+ * FileSystemProvider for empty files used in diff views.
+ * This handles both text and binary files (like images) properly.
+ */
+class EmptyFileSystemProvider implements vscode.FileSystemProvider {
+	private _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
+	readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
+
+	watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[] }): vscode.Disposable {
+		return new vscode.Disposable(() => {});
+	}
+
+	stat(uri: vscode.Uri): vscode.FileStat {
+		return {
+			type: vscode.FileType.File,
+			ctime: 0,
+			mtime: 0,
+			size: 0,
+		};
+	}
+
+	readDirectory(uri: vscode.Uri): [string, vscode.FileType][] {
+		return [];
+	}
+
+	createDirectory(uri: vscode.Uri): void {
+		throw vscode.FileSystemError.NoPermissions('Cannot create directory in empty file system');
+	}
+
+	readFile(uri: vscode.Uri): Uint8Array {
+		// Return an empty buffer for both text and binary files
+		return new Uint8Array(0);
+	}
+
+	writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean }): void {
+		throw vscode.FileSystemError.NoPermissions('Cannot write to empty file system');
+	}
+
+	delete(uri: vscode.Uri, options: { recursive: boolean }): void {
+		throw vscode.FileSystemError.NoPermissions('Cannot delete from empty file system');
+	}
+
+	rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean }): void {
+		throw vscode.FileSystemError.NoPermissions('Cannot rename in empty file system');
+	}
+}
 
 export const registerVSCodeProviders = () => {
 	const context = getExtensionContext();
@@ -44,9 +92,10 @@ export const registerVSCodeProviders = () => {
 		vscode.window.registerFileDecorationProvider(GitHub1sSubmoduleDecorationProvider.getInstance()),
 		vscode.window.registerFileDecorationProvider(GitHub1sChangedFileDecorationProvider.getInstance()),
 		vscode.window.registerFileDecorationProvider(GitHub1sSourceControlDecorationProvider.getInstance()),
-		// provider a readonly empty file for diff
-		vscode.workspace.registerTextDocumentContentProvider(EMPTY_FILE_SCHEME, {
-			provideTextDocumentContent: () => '',
+		// provider a readonly empty file for diff (supports both text and binary files)
+		vscode.workspace.registerFileSystemProvider(EMPTY_FILE_SCHEME, new EmptyFileSystemProvider(), {
+			isCaseSensitive: true,
+			isReadonly: true,
 		}),
 	);
 };
