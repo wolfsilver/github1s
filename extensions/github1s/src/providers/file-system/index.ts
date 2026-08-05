@@ -10,6 +10,7 @@ import {
 	FileSystemProvider,
 	FileSystemError,
 	FileChangeEvent,
+	FileChangeType,
 	FileStat,
 	FileType,
 	Uri,
@@ -42,6 +43,8 @@ export class GitHub1sFileSystemProvider implements FileSystemProvider, Disposabl
 	private _emitter = new EventEmitter<FileChangeEvent[]>();
 	private root: Map<string, Directory | File> = new Map();
 	private contentCache: Map<string, Uint8Array> = new Map();
+	private modifiedFiles: Map<string, Uint8Array> = new Map();
+	private deletedFiles: Set<string> = new Set();
 
 	private constructor() {}
 
@@ -251,6 +254,12 @@ export class GitHub1sFileSystemProvider implements FileSystemProvider, Disposabl
 				path = joinPath(file.uri.path, file.name);
 			}
 			const cacheKey = `${scheme} ${authority} ${path}`;
+
+			// Check if file has been modified locally
+			if (this.modifiedFiles.has(cacheKey)) {
+				return this.modifiedFiles.get(cacheKey) || new Uint8Array();
+			}
+
 			if (!this.contentCache.has(cacheKey)) {
 				const [repo, ref] = authority.split('+');
 				const dataSource = await this._resolveDataSource(scheme);
@@ -263,22 +272,181 @@ export class GitHub1sFileSystemProvider implements FileSystemProvider, Disposabl
 	);
 
 	async createDirectory(uri: Uri): Promise<void> {
-		return;
+		const parent = await this.lookupAsDirectory(
+			dirname(uri.path) ? uri.with({ path: dirname(uri.path) }) : uri.with({ path: '/' }),
+			true,
+		);
+		if (!parent) {
+			throw FileSystemError.FileNotFound(uri);
+		}
+
+		const name = basename(uri.path);
+		if (parent.entries && parent.entries.has(name)) {
+			throw FileSystemError.FileExists(uri);
+		}
+
+		const entry = createEntry(adapterTypes.FileType.Directory, uri, name);
+		if (!parent.entries) {
+			parent.entries = new Map();
+		}
+		parent.entries.set(name, entry);
+
+		parent.mtime = Date.now();
+		this._emitter.fire([{ type: FileChangeType.Created, uri }]);
 	}
 
 	async writeFile(uri: Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean }): Promise<void> {
-		return;
+		let { scheme, authority, path } = uri;
+
+		// Resolve the actual file uri if authority matches current workspace
+		if (authority === workspace.workspaceFolders?.[0].uri.authority) {
+			const existingFile = await this.lookupAsFile(uri, true);
+			if (existingFile) {
+				scheme = existingFile.uri.scheme;
+				authority = existingFile.uri.authority;
+				path = joinPath(existingFile.uri.path, existingFile.name);
+			}
+		}
+
+		const cacheKey = `${scheme} ${authority} ${path}`;
+		const existingEntry = await this.lookup(uri, true);
+
+		if (!existingEntry && !options.create) {
+			throw FileSystemError.FileNotFound(uri);
+		}
+
+		if (existingEntry && existingEntry instanceof Directory) {
+			throw FileSystemError.FileIsADirectory(uri);
+		}
+
+		if (existingEntry && !options.overwrite) {
+			throw FileSystemError.FileExists(uri);
+		}
+
+		// If file doesn't exist, create it in the tree
+		if (!existingEntry) {
+			const parentPath = dirname(path);
+			const parent = await this.lookupAsDirectory(uri.with({ path: parentPath }), true);
+			if (!parent) {
+				throw FileSystemError.FileNotFound(uri);
+			}
+
+			const name = basename(path);
+			const file = createEntry(adapterTypes.FileType.File, uri.with({ path: parentPath }), name);
+			if (!parent.entries) {
+				parent.entries = new Map();
+			}
+			parent.entries.set(name, file);
+		}
+
+		// Store modified content
+		this.modifiedFiles.set(cacheKey, content);
+
+		// Update file metadata
+		const file = await this.lookupAsFile(uri, false);
+		if (file) {
+			file.mtime = Date.now();
+			file.size = content.byteLength;
+		}
+
+		this._emitter.fire([{ type: existingEntry ? FileChangeType.Changed : FileChangeType.Created, uri }]);
 	}
 
 	async delete(uri: Uri, options: { recursive: boolean }): Promise<void> {
-		return;
+		const entry = await this.lookup(uri, false);
+
+		if (entry instanceof Directory && !options.recursive && entry.entries && entry.entries.size > 0) {
+			throw FileSystemError.NoPermissions('Directory is not empty');
+		}
+
+		const parentPath = dirname(uri.path);
+		const parent = await this.lookupAsDirectory(uri.with({ path: parentPath }), false);
+		if (!parent || !parent.entries) {
+			throw FileSystemError.FileNotFound(uri);
+		}
+
+		const name = basename(uri.path);
+		parent.entries.delete(name);
+		parent.mtime = Date.now();
+
+		// Mark file as deleted
+		let { scheme, authority, path } = uri;
+		if (authority === workspace.workspaceFolders?.[0].uri.authority) {
+			const file = entry instanceof File ? entry : null;
+			if (file) {
+				scheme = file.uri.scheme;
+				authority = file.uri.authority;
+				path = joinPath(file.uri.path, file.name);
+			}
+		}
+		const cacheKey = `${scheme} ${authority} ${path}`;
+		this.deletedFiles.add(cacheKey);
+		this.modifiedFiles.delete(cacheKey);
+
+		this._emitter.fire([{ type: FileChangeType.Deleted, uri }]);
 	}
 
 	async rename(oldUri: Uri, newUri: Uri, options: { overwrite: boolean }): Promise<void> {
-		return;
+		const entry = await this.lookup(oldUri, false);
+		const newEntry = await this.lookup(newUri, true);
+
+		if (newEntry && !options.overwrite) {
+			throw FileSystemError.FileExists(newUri);
+		}
+
+		// Read content if it's a file
+		let content: Uint8Array | undefined;
+		if (entry instanceof File) {
+			content = await this.readFile(oldUri);
+		}
+
+		// Delete old file
+		await this.delete(oldUri, { recursive: true });
+
+		// Create new file/directory
+		if (entry instanceof Directory) {
+			await this.createDirectory(newUri);
+		} else if (content) {
+			await this.writeFile(newUri, content, { create: true, overwrite: options.overwrite });
+		}
+
+		this._emitter.fire([
+			{ type: FileChangeType.Deleted, uri: oldUri },
+			{ type: FileChangeType.Created, uri: newUri },
+		]);
 	}
 
 	async copy?(source: Uri, destination: Uri, options: { overwrite: boolean }): Promise<void> {
-		return;
+		const entry = await this.lookup(source, false);
+		const destEntry = await this.lookup(destination, true);
+
+		if (destEntry && !options.overwrite) {
+			throw FileSystemError.FileExists(destination);
+		}
+
+		if (entry instanceof File) {
+			const content = await this.readFile(source);
+			await this.writeFile(destination, content, { create: true, overwrite: options.overwrite });
+		} else if (entry instanceof Directory) {
+			await this.createDirectory(destination);
+		}
+
+		this._emitter.fire([{ type: FileChangeType.Created, uri: destination }]);
+	}
+
+	// Get list of modified files
+	public getModifiedFiles(): { uri: string; content: Uint8Array }[] {
+		return Array.from(this.modifiedFiles.entries()).map(([uri, content]) => ({ uri, content }));
+	}
+
+	// Get list of deleted files
+	public getDeletedFiles(): string[] {
+		return Array.from(this.deletedFiles);
+	}
+
+	// Clear local modifications
+	public clearModifications(): void {
+		this.modifiedFiles.clear();
+		this.deletedFiles.clear();
 	}
 }
