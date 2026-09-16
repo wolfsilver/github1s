@@ -18,7 +18,7 @@
     "onFileSystem:gitlab1s",
     "onFileSystem:bitbucket1s",
     "onFileSystem:npmjs1s",
-    "onFileSystem:ossinsight",
+    "onFileSystem:discovery",
     "onCommand:remoteHub.openRepository"
   ],
   "browser": "./dist/extension",
@@ -26,6 +26,32 @@
     "vscode": "^1.48.0"
   },
   "contributes": {
+    "resourceLabelFormatters": [
+      {
+        "scheme": "github1s",
+        "authority": "?*/**",
+        "formatting": {
+          "label": "${path} (${authoritySuffix})",
+          "separator": "/"
+        }
+      },
+      {
+        "scheme": "gitlab1s",
+        "authority": "?*/**",
+        "formatting": {
+          "label": "${path} (${authoritySuffix})",
+          "separator": "/"
+        }
+      },
+      {
+        "scheme": "bitbucket1s",
+        "authority": "?*/**",
+        "formatting": {
+          "label": "${path} (${authoritySuffix})",
+          "separator": "/"
+        }
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -596,7 +622,8 @@
   "scripts": {
     "clean": "rm -rf dist out",
     "watch": "webpack --config webpack.config.js --watch",
-    "compile": "webpack --config webpack.config.js --mode production"
+    "compile": "webpack --config webpack.config.js --mode production",
+    "test": "node --experimental-strip-types --test test/*.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -610,9 +637,10 @@
     "js-base64": "^3.7.2",
     "json-stable-stringify": "^1.0.1",
     "match-sorter": "^6.3.1",
+    "minimatch": "^9.0.9",
     "p-finally": "^3.0.0",
     "process": "^0.11.10",
-    "query-string": "^7.1.1"
+    "query-string": "^9.5.0"
   },
   "devDependencies": {
     "@types/vscode": "^1.96.0",

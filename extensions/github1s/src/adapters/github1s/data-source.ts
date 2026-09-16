@@ -31,8 +31,10 @@ import { toUint8Array } from 'js-base64';
 import { matchSorter } from 'match-sorter';
 import { FILE_BLAME_QUERY } from './graphql';
 import { GitHubFetcher } from './fetcher';
+import { getGitHubTextSearchResults, getSearchcodeTextSearchResults } from './search';
 import { SourcegraphDataSource } from '../sourcegraph/data-source';
 import { decorate, memorize } from '@/helpers/func';
+import { normalizePath, trimStart, concatPath, isString } from '@/helpers/util';
 
 const parseRepoFullName = (repoFullName: string) => {
 	const [owner, repo] = repoFullName.split('/');
@@ -41,7 +43,7 @@ const parseRepoFullName = (repoFullName: string) => {
 
 const encodeFilePath = (filePath: string): string => {
 	const pathParts = filePath.split('/').filter(Boolean);
-	return pathParts.map((segment) => encodeURIComponent(segment)).join('/');
+	return `/${pathParts.map((segment) => encodeURIComponent(segment)).join('/')}`;
 };
 
 const FileTypeMap = {
@@ -72,7 +74,9 @@ const trySourcegraphApiFirst = (_target: any, propertyKey: string, descriptor: P
 		if (await githubFetcher.getPreferSourcegraphApi(args[0])) {
 			try {
 				return await sourcegraphDataSource[propertyKey](...args);
-			} catch (e) {}
+			} catch {
+				await githubFetcher.setPreferSourcegraphApi(false, args[0]);
+			}
 		}
 		return originalMethod.apply(this, args);
 	};
@@ -104,13 +108,32 @@ export class GitHub1sDataSource extends DataSource {
 	@trySourcegraphApiFirst
 	async provideDirectory(repoFullName: string, ref: string, path: string, recursive = false): Promise<Directory> {
 		const fetcher = GitHubFetcher.getInstance();
-		const encodedPath = encodeFilePath(path);
+		const repositoryParams = parseRepoFullName(repoFullName);
+		if (recursive) {
+			const response = await fetcher
+				.request('GET /repos/{owner}/{repo}/git/tree-file-list/{ref}', { ref, ...repositoryParams })
+				.catch(() => null);
+			const filePaths = response?.data;
+			if (Array.isArray(filePaths) && filePaths.every(isString)) {
+				const directoryPath = path.split('/').filter(Boolean).join('/');
+				const directoryPrefix = directoryPath ? `${directoryPath}/` : '';
+				const entries: DirectoryEntry[] = filePaths
+					.filter((filePath: string) => filePath.startsWith(directoryPrefix))
+					.map((filePath: string) => ({
+						path: concatPath(path, filePath.slice(directoryPrefix.length)),
+						type: FileType.File,
+					}));
+				return { entries, truncated: false };
+			}
+		}
+
+		const encodedPath = trimStart(encodeFilePath(path), '/');
 		// github api will return all files if `recursive` exists, even the value if false
 		const recursiveParams = recursive ? { recursive } : {};
-		const requestParams = { ref, path: encodedPath, ...parseRepoFullName(repoFullName), ...recursiveParams };
+		const requestParams = { ref, path: encodedPath, ...repositoryParams, ...recursiveParams };
 		const { data } = await fetcher.request('GET /repos/{owner}/{repo}/git/trees/{ref}:{path}', requestParams);
 		const parseTreeItem = (treeItem): DirectoryEntry => ({
-			path: treeItem.path,
+			path: concatPath(path, treeItem.path),
 			type: FileTypeMap[treeItem.type] || FileType.File,
 			commitSha: FileTypeMap[treeItem.type] === FileType.Submodule ? treeItem.sha || 'HEAD' : undefined,
 			size: treeItem.size,
@@ -126,7 +149,7 @@ export class GitHub1sDataSource extends DataSource {
 	async provideFile(repoFullName: string, ref: string, path: string): Promise<File> {
 		const fetcher = GitHubFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
-		const requestParams = { owner, repo, ref, path };
+		const requestParams = { owner, repo, ref, path: trimStart(path, '/') };
 		const { data } = await fetcher.request('GET /repos/{owner}/{repo}/contents/{path}', requestParams);
 		return { content: toUint8Array((data as any).content) };
 	}
@@ -156,16 +179,16 @@ export class GitHub1sDataSource extends DataSource {
 		const matchPathRef = (ref) => refAndPath.startsWith(`${ref}/`) || refAndPath === ref;
 		const matchedRef = this.matchedRefsMap.get(repoFullName)?.find(matchPathRef);
 		if (matchedRef) {
-			return { ref: matchedRef, path: refAndPath.slice(matchedRef.length + 1) };
+			return { ref: matchedRef, path: normalizePath(refAndPath.slice(matchedRef.length + 1)) };
 		}
 		const mapKey = `${repoFullName} ${refAndPath}`;
 		if (!this.refPathPromiseMap.has(mapKey)) {
 			const refPathPromise = new Promise<{ ref: string; path: string }>(async (resolve, reject) => {
 				if (!refAndPath) {
-					return resolve({ ref: await this.getDefaultBranch(repoFullName), path: '' });
+					return resolve({ ref: await this.getDefaultBranch(repoFullName), path: '/' });
 				}
 				if (refAndPath.match(/^HEAD(\/.*)?$/i)) {
-					return resolve({ ref: 'HEAD', path: refAndPath.slice(5) });
+					return resolve({ ref: 'HEAD', path: normalizePath(refAndPath.slice(5)) });
 				}
 
 				const fetcher = GitHubFetcher.getInstance();
@@ -174,7 +197,8 @@ export class GitHub1sDataSource extends DataSource {
 				const requestUrl = `GET /repos/{owner}/{repo}/git/extract-ref/{refAndPath}`;
 				const response = await fetcher.request(requestUrl, requestParams).catch(reject);
 				response?.data?.ref && this.matchedRefsMap.get(repoFullName)?.push(response.data.ref);
-				return resolve(response?.data || { ref: 'HEAD', path: '' });
+				const result = response?.data || { ref: 'HEAD', path: '/' };
+				return resolve({ ...result, path: normalizePath(result.path || '') });
 			});
 			this.refPathPromiseMap.set(mapKey, refPathPromise);
 		}
@@ -227,13 +251,23 @@ export class GitHub1sDataSource extends DataSource {
 		return tags.find((item) => item.name === tagName) || null;
 	}
 
+	@trySourcegraphApiFirst
 	async provideTextSearchResults(
 		repoFullName: string,
 		ref: string,
 		query: TextSearchQuery,
 		options: TextSearchOptions,
 	): Promise<TextSearchResults> {
-		return sourcegraphDataSource.provideTextSearchResults(repoFullName, ref, query, options);
+		try {
+			// Prefer using the searchcode.com API, and fallback to GitHub API if it's unavailable.
+			return await getSearchcodeTextSearchResults(`${GITHUB_ORIGIN}/${repoFullName}`, query, options);
+		} catch {
+			// Now Github API is blocked by CORS, so we use a CF Worker to proxy this request temporarily
+			// Proxy Worker source code: functions/api/github/search/code.ts
+			// Also see https://github.com/orgs/community/discussions/206576
+			const baseUrl = `${self.location.origin}/api/github`;
+			return getGitHubTextSearchResults(GitHubFetcher.getInstance().request, baseUrl, repoFullName, query, options);
+		}
 	}
 
 	@trySourcegraphApiFirst
@@ -247,7 +281,7 @@ export class GitHub1sDataSource extends DataSource {
 			page: options?.page,
 			per_page: options?.pageSize,
 			sha: options?.from,
-			path: options?.path,
+			path: isString(options?.path) ? trimStart(options.path, '/') : undefined,
 			author: options?.author,
 		};
 		const requestParams = { owner, repo, ...queryParams };
@@ -279,8 +313,8 @@ export class GitHub1sDataSource extends DataSource {
 			createTime: data.commit.author?.date ? new Date(data.commit.author.date) : undefined,
 			parents: data.parents.map((parent) => parent.sha) || [],
 			files: data.files?.map((item) => ({
-				path: item.filename || item.previous_filename!,
-				previousPath: item.previous_filename,
+				path: normalizePath(item.filename || item.previous_filename!),
+				previousPath: item.previous_filename ? normalizePath(item.previous_filename) : undefined,
 				status: item.status as FileChangeStatus,
 			})),
 			avatarUrl: data.author?.avatar_url,
@@ -299,8 +333,8 @@ export class GitHub1sDataSource extends DataSource {
 		const { data } = await fetcher.request('GET /repos/{owner}/{repo}/commits/{ref}', requestParams);
 		return (
 			data.files?.map((item) => ({
-				path: item.filename || item.previous_filename!,
-				previousPath: item.previous_filename,
+				path: normalizePath(item.filename || item.previous_filename!),
+				previousPath: item.previous_filename ? normalizePath(item.previous_filename) : undefined,
 				status: item.status as FileChangeStatus,
 			})) || []
 		);
@@ -367,8 +401,8 @@ export class GitHub1sDataSource extends DataSource {
 		const { data } = await fetcher.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', filesRequestParams);
 
 		return data.map((item) => ({
-			path: item.filename,
-			previousPath: item.previous_filename,
+			path: normalizePath(item.filename),
+			previousPath: item.previous_filename ? normalizePath(item.previous_filename) : undefined,
 			status: item.status as FileChangeStatus,
 		}));
 	}
@@ -377,7 +411,7 @@ export class GitHub1sDataSource extends DataSource {
 	async provideFileBlameRanges(repoFullName: string, ref: string, path: string): Promise<BlameRange[]> {
 		const fetcher = GitHubFetcher.getInstance();
 		const { owner, repo } = parseRepoFullName(repoFullName);
-		const requestParams = { owner, repo, ref, path };
+		const requestParams = { owner, repo, ref, path: trimStart(path, '/') };
 		const data = await fetcher.graphql(FILE_BLAME_QUERY, requestParams);
 		const blameRanges = (data as any)?.repository?.object?.blame?.ranges;
 

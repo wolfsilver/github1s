@@ -1,0 +1,50 @@
+import { html } from 'htm/preact';
+
+import type { ContextAttachmentDescriptor } from '@/common/protocol';
+
+import { attachmentSetiIcon, setiFileIconPresentation } from '../helpers/attachments';
+import { Icon } from './Icon';
+import { Tooltip, TooltipButton } from './Tooltip';
+
+interface AttachmentChipsProps {
+	attachments: readonly ContextAttachmentDescriptor[];
+	disabled?: boolean;
+	onOpen: (source: string) => void;
+	onRemove?: (id: string) => void;
+}
+
+export const AttachmentChips = ({ attachments, disabled = false, onOpen, onRemove }: AttachmentChipsProps) => {
+	if (attachments.length === 0) return null;
+	const readOnly = onRemove === undefined;
+
+	return html`<div
+		class="attachment-row"
+		role="group"
+		aria-label=${readOnly ? 'Attachments used for this message' : 'Attachments for next message'}
+	>
+		${attachments.map((attachment) => {
+			const icon = attachmentSetiIcon(attachment);
+			const presentation = setiFileIconPresentation(icon);
+			const iconClass = `seti-file-icon seti-file-icon-${icon} seti-file-icon-color-${presentation.color} attachment-icon`;
+			return html`<span class="attachment-chip" key=${attachment.id}>
+				<${Tooltip} content=${attachment.source}>
+					<button class="attachment-name" type="button" onClick=${() => onOpen(attachment.source)}>
+						<${Icon} name="file" className="attachment-file-fallback" />
+						<span class=${iconClass} aria-hidden="true">${presentation.glyph}</span>
+						<span class="attachment-label">${attachment.label}</span>
+					</button>
+				<//>
+				${onRemove
+					? html`<${TooltipButton}
+							class="chip-remove"
+							label=${`Remove ${attachment.label}`}
+							disabled=${disabled}
+							onClick=${() => onRemove(attachment.id)}
+						>
+							<${Icon} name="close" />
+						<//>`
+					: null}
+			</span>`;
+		})}
+	</div>`;
+};

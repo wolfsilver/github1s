@@ -9,7 +9,6 @@ import { getExtensionContext } from '@/helpers/context';
 import { Octokit } from '@octokit/core';
 import { GitHub1sAuthenticationView } from './authentication';
 import { GitHubTokenManager } from './token';
-import { isNil } from '@/helpers/util';
 import { getCurrentRepo } from './parse-path';
 import { SourcegraphDataSource } from '../sourcegraph/data-source';
 
@@ -56,7 +55,6 @@ export class GitHubFetcher {
 	private _request: Octokit['request'] | null = null;
 	public onDidChangePreferSourcegraphApi = this._emitter.event;
 	private _currentRepoPromise: Promise<any> | null = null;
-	private _sgApiTimeout: boolean = false;
 
 	public request: Octokit['request'];
 	public graphql: Octokit['graphql'];
@@ -82,15 +80,16 @@ export class GitHubFetcher {
 
 		this._request = octokit.request;
 		this.request = Object.assign((...args: Parameters<Octokit['request']>) => {
-			return octokit.request(...args).catch(async (error) => {
+			return this._request!(...args).catch(async (error) => {
 				const errorStatus = error?.response?.status as number | undefined;
 				const repoNotFound = errorStatus === 404 && !(await this.resolveCurrentRepo());
 				if ((errorStatus && [401, 403].includes(errorStatus)) || repoNotFound) {
 					// maybe we have to acquire github access token to continue
-					const message = detectErrorMessage(error?.response, !!accessToken);
+					const message = detectErrorMessage(error?.response, !!GitHubTokenManager.getInstance().getToken());
 					await GitHub1sAuthenticationView.getInstance().open(message, true);
 					return this._request!(...args);
 				}
+				throw error;
 			});
 		}, this._request);
 
@@ -123,10 +122,8 @@ export class GitHubFetcher {
 						repo?.private && this.setPreferSourcegraphApi(false);
 					});
 				}
-			} catch (e) {
-				if (e.message && e.message.includes('signal is aborted')) {
-					this._sgApiTimeout = true;
-				}
+			} catch {
+				await this.setPreferSourcegraphApi(false);
 			}
 		}
 	}
@@ -135,7 +132,7 @@ export class GitHubFetcher {
 		const targetRepo = repo || (await getCurrentRepo());
 		const globalState = getExtensionContext().globalState;
 		const cachedData: Record<string, boolean> | undefined = globalState.get(PREFER_SOURCEGRAPH_API);
-		return !isNil(cachedData?.[targetRepo]) ? !!cachedData?.[targetRepo] : this._sgApiTimeout ? false : true;
+		return cachedData?.[targetRepo] ?? true;
 	}
 
 	public async setPreferSourcegraphApi(value: boolean, repo?: string) {
